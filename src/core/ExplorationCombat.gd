@@ -115,7 +115,7 @@ const ZONES: Array[Dictionary] = [
 	}
 ]
 
-# Las 4 Competiciones del Gran Festival de las Constelaciones de Otoño (Bimestre 5)
+# Las 4 Competiciones del Gran Festival de las Constelaciones de Otoño (Bimestre 4)
 const FESTIVAL_CONTESTS: Array[Dictionary] = [
 	{
 		"id": "contest_blades",
@@ -203,7 +203,7 @@ func start_expedition(zone_idx: int, comp_id: String, comp_display_name: String)
 	player_max_hp = 180 + GameState.temple * 2 + GameState.gravedad
 	player_hp = player_max_hp
 	player_shield = 0
-	player_max_ap = 4 if GameState.active_mutations.has("Paradoja Menor (Doble Turno)") else 3
+	player_max_ap = 4 if GameState.has_mutation("paradoja_menor") else 3
 	player_ap = player_max_ap
 	rewind_charges = 1
 	unsealed_this_combat = false
@@ -437,8 +437,8 @@ func _check_enemy_defeat_or_continue() -> void:
 # LÓGICA DEL GRAN FESTIVAL DE LAS CONSTELACIONES DE OTOÑO (FASE 8)
 # ==============================================================================
 func participate_in_festival(contest_idx: int, rival_mirror_dict: Dictionary) -> Dictionary:
-	if TimeManager.current_bimester != 5:
-		return {"ok": false, "msg": "El Gran Festival de las Constelaciones se celebra en el Bimestre 5 (Equinoccio de Otoño). Aún puedes prepararte."}
+	if TimeManager.current_bimester != TimeManager.FESTIVAL_BIMESTER:
+		return {"ok": false, "msg": "El Gran Festival de las Constelaciones se celebra en el Bimestre 4 (Cosecha, Equinoccio de Otoño). Aún puedes prepararte."}
 	if festival_entered_this_year:
 		return {"ok": false, "msg": "Renpet ya compitió en el certamen oficial del Festival de Otoño de este año."}
 	if contest_idx < 0 or contest_idx >= FESTIVAL_CONTESTS.size():
