@@ -89,7 +89,7 @@ func _show_step_vectors() -> void:
 		mv.add_child(AstralTheme.label("%s   ·   Vocación: %s (%s)" % [
 			str(branch.get("short", "")), str(voc.get("name", "")), str(voc.get("tag", ""))
 		], "SubLabel", b_col, true))
-		mv.add_child(AstralTheme.rich("[font_size=20]%s[/font_size]" % str(_eval.get("ending_summary", ""))))
+		mv.add_child(AstralTheme.rich("[font_size=18]%s[/font_size]" % str(_eval.get("ending_summary", ""))))
 		content.add_child(main_card)
 
 		# Grid 2 columnas: Vínculos + Política + Rivales

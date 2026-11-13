@@ -339,15 +339,13 @@ func _ready() -> void:
 			check(not bev.is_empty(), "BondEvents etapa %d existe para %s" % [st, rid])
 			var c_ids: Array[String] = []
 			for opt in bev.get("choices", []):
-				c_ids.append(str(opt.get("id", "")))
+				c_ids.append(str(opt.get("kind", opt.get("id", ""))))
 			check(c_ids.has("friend") and c_ids.has("rival") and c_ids.has("romance"), "BondEvents etapa %d de %s tiene friend/rival/romance" % [st, rid])
 	for rid in RivalMirror.RIVAL_ORDER:
 		check(RivalMirror.get_status_quote(rid) != "", "RivalMirror.get_status_quote no vacío para %s" % rid)
 
 	# Reinicio limpio para probar Actos 1/2/3, Tier 0 sin spoilers, salidas (outing), switcher y encuentros cruzados
-	GameState.reset_run()
-	TimeManager.reset()
-	RelationshipManager.reset()
+	SaveManager.new_game()
 	GameState.prologue_completed = true
 	GameState.age = 12
 	check(GameState.get_secret_tier() == 0, "Tier 0 confirmado en edad 12")
@@ -364,7 +362,7 @@ func _ready() -> void:
 		check(not d_chk.contains("Nyx-Aethel") and not d_chk.to_lower().contains("prisionero"), "sin spoilers del giro en Tier 0")
 		if d_chk.to_lower().contains("gala") or d_chk.to_lower().contains("salón") or d_chk.to_lower().contains("seda") or d_chk.to_lower().contains("baile"):
 			outfit_hits = true
-	check(RelationshipManager.OUTFIT_COMMENTS.has("gala") and outfit_hits or not RelationshipManager.OUTFIT_COMMENTS.get("gala", {}).is_empty(), "tabla OUTFIT_COMMENTS activa")
+	check(RelationshipManager.OUTFIT_COMMENTS.get("vespera", {}).has("gala") and (outfit_hits or not RelationshipManager.OUTFIT_COMMENTS.get("vespera", {}).is_empty()), "tabla OUTFIT_COMMENTS activa")
 
 	GameState.gold = 900
 	RelationshipManager.reset_bimester_flags()
@@ -398,6 +396,7 @@ func _ready() -> void:
 	check(caelum_found, "selector de residentes en Patio Ducal muestra a Caelum")
 
 	# Desbloquear conocidos y validar encuentro cruzado en distrito
+	RelationshipManager.reset_bimester_flags()
 	for nid in RelationshipManager.NPC_ORDER:
 		if RelationshipManager.state.has(nid):
 			RelationshipManager.state[nid]["known"] = true
@@ -419,6 +418,96 @@ func _ready() -> void:
 		check(bool(ce_res.get("ok", false)), "resolución de encuentro cruzado devuelve ok = true")
 	hub._city_map.close_overlay()
 	await frames(2)
+
+	# --- VERIFICACIÓN: SUMIDEROS DE ORO Y FINALES ESPECÍFICOS ---
+	SaveManager.new_game()
+	GameState.prologue_completed = true
+	GameState.age = 12
+	hub.debug_open_city("torre")
+	await frames(3)
+	var torre_tabs: TabContainer = _find_tab_container(hub._city_map)
+	check(torre_tabs != null and torre_tabs.get_tab_count() >= 2, "Torre muestra Biblioteca de Tratados")
+	if torre_tabs != null and torre_tabs.get_tab_count() >= 2:
+		torre_tabs.current_tab = 1
+		await frames(2)
+		var t12_txt: String = "\n".join(_all_label_texts(hub._city_map))
+		check(t12_txt.contains("Efemérides Inversas") and not t12_txt.contains("Primer Solsticio"), "tratados de mayor edad ocultos a los 12 años")
+	hub._city_map.close_overlay()
+	await frames(2)
+
+	GameState.age = 18
+	GameState.gold = 25000
+	var tome_r: Dictionary = GameState.buy_tome("tome_lost_chronicle")
+	check(bool(tome_r.get("ok", false)) and GameState.get_tome_study_mod() >= 0.09, "compra de tratado otorga bono de estudio")
+	var wpn_r: Dictionary = GameState.buy_equipment("wpn_sovereign_blade")
+	var acc_r: Dictionary = GameState.buy_equipment("acc_crown_signet")
+	check(bool(wpn_r.get("ok", false)) and bool(acc_r.get("ok", false)), "forja y equipa arma + reliquia de rango alto")
+	check(int(round(GameState.get_equip_mod("atk_flat", 0.0))) == 30, "get_equip_mod suma arma (+22) y reliquia (+8)")
+	var inv_r: Dictionary = GameState.invest_civic("civic_aqueduct_charter")
+	check(bool(inv_r.get("ok", false)) and GameState.get_civic_dividend() >= 55, "patronazgo cívico otorga renta bimestral")
+
+	# Mejora de ala nueva en la mansión hasta nivel 6
+	check(HearthWindow.get_upgrade_cost(5) == 1850, "escala progresiva de costes en alas nv 5+")
+	GameState.estate_levels["sanctum"] = 5
+	hub.debug_open_window("hearth")
+	await frames(2)
+	hub._windows["hearth"]._tabs.current_tab = 2
+	await frames(2)
+	var sanctum_upg_btn: Button = null
+	for hb in _all_buttons(hub._windows["hearth"]):
+		if str(hb.text).contains("1850 G"):
+			sanctum_upg_btn = hb
+			break
+	check(sanctum_upg_btn != null, "HearthWindow muestra mejora nv 5->6 (1850 G) para alas")
+	if sanctum_upg_btn != null:
+		sanctum_upg_btn.pressed.emit()
+		await frames(2)
+		check(int(GameState.estate_levels.get("sanctum", 1)) == 6, "mejora de Jardín Botánico-Sanatorio sube a nv 6")
+	hub._windows["hearth"].close()
+	await frames(2)
+
+	# Verificar Consumibles en Acueductos y uso real en Combate a 0 PA
+	check(bool(GameState.buy_consumable("phial_aether").get("ok", false)), "compra Vial de Chispa Sideral")
+	ExplorationCombat.explored_this_bimester = false
+	var st_exp: Dictionary = ExplorationCombat.start_expedition(0, "solo", GameState.daughter_name)
+	check(bool(st_exp.get("ok", false)), "inicia expedición para probar consumibles en UI")
+	if bool(st_exp.get("ok", false)):
+		hub._combat.open_combat()
+	await frames(3)
+	var combat_btns: Array = _all_buttons(hub._combat)
+	var phial_btn: Button = null
+	for cb in combat_btns:
+		if str(cb.text).contains("Vial de Chispa Sideral"):
+			phial_btn = cb
+			break
+	check(phial_btn != null, "CombatOverlay renderiza botón de consumible adquirido")
+	var ap_before: int = ExplorationCombat.player_ap
+	if phial_btn != null:
+		phial_btn.pressed.emit()
+		await frames(2)
+		check(ExplorationCombat.player_ap == ap_before + 2 and GameState.get_consumable_count("phial_aether") == 0, "usar Vial en CombatOverlay suma +2 PA sin gastar PA y consume unidad")
+	ExplorationCombat.retreat_from_combat()
+	await frames(2)
+	hub._combat.visible = false
+
+	# Ficha refleja arma/reliquia/tratados/patronazgos y Palacio muestra Patronazgo Cívico
+	hub.debug_open_window("status")
+	await frames(3)
+	var st_txts: String = "\n".join(_all_label_texts(hub._windows["status"]))
+	check(st_txts.contains("Hoja Juramentada") and st_txts.contains("Sello de la Primera"), "StatusSheet muestra arma y reliquia equipadas")
+	hub._windows["status"].close()
+	await frames(2)
+
+	hub.debug_open_city("palacio")
+	await frames(3)
+	var pal_t: TabContainer = _find_tab_container(hub._city_map)
+	check(pal_t != null and pal_t.get_tab_count() >= 4, "Palacio agrega pestaña Patronazgo y Joyería sin alterar índice Obsequios Finos")
+	hub._city_map.close_overlay()
+	await frames(2)
+
+	# Política y prosa de finales específicos tras inversiones
+	var ev_fin: Dictionary = EndingEvaluator.evaluate_campaign()
+	check(str(ev_fin.get("politics", {}).get("text", "")).contains("Acueductos Altos"), "vector político incorpora patronazgos realizados")
 
 	print("\n==== UI SMOKE: %d fallos ====" % failures)
 	get_tree().quit(1 if failures > 0 else 0)

@@ -198,6 +198,14 @@ func refresh() -> void:
 	_head_chips.add_child(c_outfit)
 	var c_deck := AstralTheme.chip("Mazo %d/4" % cards_cnt, AstralTheme.SKY, null, 13)
 	_head_chips.add_child(c_deck)
+	if GameState.equipped_weapon != "":
+		var w_name: String = str(CatalogDB.get_equipment(GameState.equipped_weapon).get("name", GameState.equipped_weapon))
+		_head_chips.add_child(AstralTheme.chip("Arma: %s" % w_name, AstralTheme.EMBER, null, 13))
+	if GameState.equipped_accessory != "":
+		var a_name: String = str(CatalogDB.get_equipment(GameState.equipped_accessory).get("name", GameState.equipped_accessory))
+		_head_chips.add_child(AstralTheme.chip("Reliquia: %s" % a_name, AstralTheme.ROSE, null, 13))
+	if not GameState.owned_tomes.is_empty() or not GameState.civic_investments.is_empty():
+		_head_chips.add_child(AstralTheme.chip("Tratados: %d · Patronazgos: %d" % [GameState.owned_tomes.size(), GameState.civic_investments.size()], AstralTheme.GOOD, null, 13))
 	var c_voc := AstralTheme.chip("%s %s" % [AstralTheme.G_STAR, str(voc.get("name", ""))], AstralTheme.GOLD_PALE, AstralTheme.GOLD, 13)
 	c_voc.tooltip_text = "Vocación proyectada (%s)" % str(voc.get("tag", ""))
 	_head_chips.add_child(c_voc)

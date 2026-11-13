@@ -73,6 +73,7 @@ var _log_rich: RichTextLabel
 var _cards_box: Control
 var _node_box: VBoxContainer
 var _mem_row: HFlowContainer
+var _consumables_row: HFlowContainer
 var _node_pills: Array[PanelContainer] = []
 var _arena_box: Control
 var _finish_box: Control
@@ -307,6 +308,13 @@ func _build_ui() -> void:
 	_mem_row.add_theme_constant_override("v_separation", 6)
 	cards_root.add_child(_mem_row)
 
+	var cons_head := AstralTheme.label("Botiquín de Expedición (pociones y talismanes, 0 PA):", "CaptionLabel", AstralTheme.TURQ)
+	cards_root.add_child(cons_head)
+	_consumables_row = HFlowContainer.new()
+	_consumables_row.add_theme_constant_override("h_separation", 8)
+	_consumables_row.add_theme_constant_override("v_separation", 6)
+	cards_root.add_child(_consumables_row)
+
 	# --- PANEL DE EVENTO DE RUTA (NODOS 2 Y 3) ---
 	_node_box = AstralTheme.vbox(10)
 	_node_box.visible = false
@@ -373,6 +381,7 @@ func _refresh_combat() -> void:
 		_node_box.visible = false
 		_cards_box.visible = true
 		_rebuild_memory_cards()
+		_rebuild_consumables()
 	_enemy_title_lbl.text = ExplorationCombat.enemy_title
 
 	var first_paint: bool = (_last_enemy_hp < 0)
@@ -566,6 +575,37 @@ func _rebuild_memory_cards() -> void:
 		var card_id: String = cid
 		b.pressed.connect(func() -> void: ExplorationCombat.play_combat_card(card_id))
 		_mem_row.add_child(b)
+
+func _rebuild_consumables() -> void:
+	if _consumables_row == null:
+		return
+	for c in _consumables_row.get_children():
+		c.queue_free()
+	var any_owned: bool = false
+	for item in CatalogDB.COMBAT_CONSUMABLES:
+		var iid: String = str(item["id"])
+		var cnt: int = GameState.get_consumable_count(iid)
+		if cnt <= 0:
+			continue
+		any_owned = true
+		var b := AstralTheme.button("%s  (x%d)" % [str(item["name"]), cnt], "TabLikeButton", str(item["desc"]))
+		var tex: Texture2D = AstralTheme.load_tex(str(item.get("icon", "")))
+		if tex != null:
+			b.icon = tex
+			b.expand_icon = true
+		b.custom_minimum_size = Vector2(215, 36)
+		b.disabled = not ExplorationCombat.in_combat or ExplorationCombat.player_hp <= 0
+		_style_combat_card(b, AstralTheme.TURQ)
+		b.pressed.connect(func() -> void:
+			var r: Dictionary = ExplorationCombat.use_combat_consumable(iid)
+			if bool(r.get("ok", false)):
+				AstralAudio.play_confirm()
+			else:
+				AstralAudio.play_warn()
+		)
+		_consumables_row.add_child(b)
+	if not any_owned:
+		_consumables_row.add_child(AstralTheme.label("Sin consumibles en bolsa (cómpralos en Acueductos -> Boticario).", "CaptionLabel", AstralTheme.MUTED))
 
 func _on_combat_finished(victory: bool, summary: String) -> void:
 	_pending_victory = victory

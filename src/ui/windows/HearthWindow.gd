@@ -10,7 +10,9 @@ const FACILITIES: Array[Dictionary] = [
 	{"id": "library", "name": "Bóveda Estelar", "desc": "Sala de estudio. +4 por nivel a las ganancias principales de la Torre del Astrolabio."},
 	{"id": "armory", "name": "Patio de Lanzas", "desc": "Campo de práctica. +4 por nivel en la Academia de Armas y la Escolta de Caravanas."},
 	{"id": "conservatory", "name": "Salón de Lotos y Música", "desc": "+4 por nivel en Conservatorio, Anfiteatro y reposo en casa, y alivia 3 de Estrés por nivel cada bimestre."},
-	{"id": "crucible", "name": "Cámara del Crisol", "desc": "Taller del Horno Astral. Cada nivel reduce 2 la Saturación generada, acelera su disipación, abarata la purificación y suma +4 en la Relojería Real."}
+	{"id": "crucible", "name": "Cámara del Crisol", "desc": "Taller del Horno Astral. Cada nivel reduce 2 la Saturación generada, acelera su disipación, abarata la purificación y suma +4 en la Relojería Real."},
+	{"id": "sanctum", "name": "Jardín Botánico-Sanatorio", "desc": "Invernadero curativo. +4% en Sanatorio y Reposo, +6 PV máx., -2 Estrés, disipa +1% Saturación y refuerza el Anclaje Humano cada bimestre."},
+	{"id": "treasury", "name": "Salón Diplomático", "desc": "Despacho de finanzas y Corte. Cada nivel rinde +18 G bimestrales, reduce -1 Sospecha de Corte y aporta +3% en Conservatorio y Anfiteatro."}
 ]
 class _EmberFX extends Control:
 	var _embers: Array[Dictionary] = []
@@ -52,8 +54,11 @@ class _EmberFX extends Control:
 			draw_circle(Vector2(px, py), r * 2.4, Color(c.r, c.g, c.b, a * 0.28))
 			draw_circle(Vector2(px, py), r, Color(1.0, 0.90, 0.62, a))
 
-const MAX_LEVEL: int = 5
+const MAX_LEVEL: int = 8
 const UPGRADE_BASE_COST: int = 300
+
+static func get_upgrade_cost(lvl: int) -> int:
+	return UPGRADE_BASE_COST * lvl + maxi(0, lvl - 4) * 350
 
 const ATTITUDE_ORDER: Array[String] = ["warm", "strict", "curious", "protective"]
 const ATTITUDE_HINT: Dictionary = {
@@ -110,6 +115,10 @@ func _facility_icon(fid: String) -> String:
 			return "res://assets/art/illus_martial_courtyard.png"
 		"conservatory":
 			return "res://assets/art/illus_conservatory_harp.png"
+		"sanctum":
+			return "res://assets/art/illus_sanatorium_garden.png"
+		"treasury":
+			return "res://assets/art/bg_district_palacio.png"
 		_:
 			return "res://assets/ui/relic_comet_dust.png"
 
@@ -354,7 +363,7 @@ func _refresh_diet() -> void:
 # ------------------------------------------------------------------------------
 func _refresh_estate() -> void:
 	clear(_estate_box)
-	_estate_box.add_child(AstralTheme.chip("Costo: %d G × nivel actual (máx. %d)  ·  Oro disponible: %d G" % [UPGRADE_BASE_COST, MAX_LEVEL, GameState.gold], AstralTheme.GOLD_PALE, AstralTheme.GOLD, 13))
+	_estate_box.add_child(AstralTheme.chip("Costo progresivo (máx. nv.%d  |  nv.5+ gran obra)  ·  Oro disponible: %d G" % [MAX_LEVEL, GameState.gold], AstralTheme.GOLD_PALE, AstralTheme.GOLD, 13))
 	for f in FACILITIES:
 		var lvl: int = int(GameState.estate_levels.get(f["id"], 1))
 		var card := AstralTheme.panel("CardPanel")
@@ -373,14 +382,14 @@ func _refresh_estate() -> void:
 		title_row.add_child(AstralTheme.label(str(f["name"]), "SubLabel"))
 		title_row.add_child(AstralTheme.chip("Nv. %d / %d" % [lvl, MAX_LEVEL], AstralTheme.TURQ, null, 12))
 		mid.add_child(AstralTheme.label(str(f["desc"]), "CaptionLabel", AstralTheme.IVORY, true))
-		var pips := AstralTheme.hbox(6)
+		var pips := AstralTheme.hbox(5)
 		for i in range(MAX_LEVEL):
 			var pip := ColorRect.new()
-			pip.custom_minimum_size = Vector2(36, 8)
+			pip.custom_minimum_size = Vector2(24, 8)
 			pip.color = AstralTheme.GOLD if i < lvl else Color(1, 1, 1, 0.12)
 			pips.add_child(pip)
 		mid.add_child(pips)
-		var cost: int = UPGRADE_BASE_COST * lvl
+		var cost: int = get_upgrade_cost(lvl)
 		var btn := AstralTheme.button("Mejorar\n%d G" % cost if lvl < MAX_LEVEL else "Máximo", "TabLikeButton")
 		btn.custom_minimum_size = Vector2(142, 58)
 		btn.disabled = lvl >= MAX_LEVEL or GameState.gold < cost
@@ -393,12 +402,13 @@ func _refresh_estate() -> void:
 
 func _upgrade(fid: String) -> void:
 	var lvl: int = int(GameState.estate_levels.get(fid, 1))
-	var cost: int = UPGRADE_BASE_COST * lvl
+	var cost: int = get_upgrade_cost(lvl)
 	if lvl >= MAX_LEVEL or not GameState.modify_gold(-cost):
 		AstralAudio.play_warn()
 		toast.emit("No alcanza el oro para la mejora.", "warn")
 		return
 	GameState.estate_levels[fid] = lvl + 1
+	GameState.recalculate_derived_stats()
 	var fname: String = ""
 	for f in FACILITIES:
 		if f["id"] == fid:

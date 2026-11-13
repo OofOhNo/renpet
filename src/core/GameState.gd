@@ -129,7 +129,16 @@ var materials_inventory: Dictionary = {
 	"sarcophagus_shard": 0, "melted_hourglass": 0, "goddess_tear": 1
 }
 var gifts_inventory: Dictionary = {}
-var estate_levels: Dictionary = {"library": 1, "armory": 1, "conservatory": 1, "crucible": 1}
+var estate_levels: Dictionary = {
+	"library": 1, "armory": 1, "conservatory": 1, "crucible": 1,
+	"sanctum": 1, "treasury": 1
+}
+var consumables_inventory: Dictionary = {}
+var owned_tomes: Array[String] = []
+var owned_equipment: Array[String] = []
+var equipped_weapon: String = ""
+var equipped_accessory: String = ""
+var civic_investments: Array[String] = []
 var active_traits: Array[String] = []
 
 var _batch_depth: int = 0
@@ -168,7 +177,16 @@ func reset_new_game() -> void:
 		"sarcophagus_shard": 0, "melted_hourglass": 0, "goddess_tear": 1
 	}
 	gifts_inventory.clear()
-	estate_levels = {"library": 1, "armory": 1, "conservatory": 1, "crucible": 1}
+	estate_levels = {
+		"library": 1, "armory": 1, "conservatory": 1, "crucible": 1,
+		"sanctum": 1, "treasury": 1
+	}
+	consumables_inventory.clear()
+	owned_tomes.clear()
+	owned_equipment.clear()
+	equipped_weapon = ""
+	equipped_accessory = ""
+	civic_investments.clear()
 	mood_calm = 0; mood_pride = 0; court_suspicion = 0
 	exhausted_sick = false; sick_dialogue_pending = false; pending_astral_crisis = false
 	consecutive_assimilations = 0; assimilated_this_bimester = false; senate_inspections_count = 0; clinic_tonic_used = false
@@ -228,7 +246,9 @@ func get_archetype_title() -> String:
 func recalculate_derived_stats() -> void:
 	var outfit_hp: int = 60 if equipped_outfit == "horizon" else 0
 	var mut_hp: int = 40 if has_mutation("sangre_pesada") else 0
-	max_stamina = 200 + int(temple * 1.2) + outfit_hp + mut_hp
+	var equip_hp: int = int(round(get_equip_mod("combat_hp", 0.0)))
+	var sanctum_hp: int = maxi(0, int(estate_levels.get("sanctum", 1)) - 1) * 6
+	max_stamina = 200 + int(temple * 1.2) + outfit_hp + mut_hp + equip_hp + sanctum_hp
 	current_stamina = clampi(current_stamina, 0, max_stamina)
 	father_max_energy = 125 if has_mutation("paradoja_menor") else 100
 	father_energy = clampi(father_energy, 0, father_max_energy)
@@ -533,6 +553,177 @@ func equip_outfit(outfit_id: String) -> Dictionary:
 	stats_updated.emit()
 	return {"ok": true, "msg": "Atuendo equipado: %s." % CatalogDB.get_outfit(outfit_id)["name"]}
 
+# ------------------------------------------------------------------------------
+# CONSUMIBLES, TOMOS DE ESTUDIO, EQUIPO Y PATRONAZGO CÍVICO
+# ------------------------------------------------------------------------------
+func get_consumable_count(item_id: String) -> int:
+	return int(consumables_inventory.get(item_id, 0))
+
+func buy_consumable(item_id: String) -> Dictionary:
+	var item: Dictionary = CatalogDB.get_consumable(item_id)
+	if item.is_empty():
+		return {"ok": false, "msg": "Consumible desconocido."}
+	var price: int = int(item.get("price", 0))
+	if not modify_gold(-price):
+		return {"ok": false, "msg": "Necesitas %d G para comprar «%s»." % [price, item["name"]]}
+	consumables_inventory[item_id] = get_consumable_count(item_id) + 1
+	stats_updated.emit()
+	return {"ok": true, "msg": "Adquirido: %s (-%d G). Guardado para expediciones." % [item["name"], price]}
+
+func consume_combat_item(item_id: String) -> bool:
+	var cnt: int = get_consumable_count(item_id)
+	if cnt <= 0:
+		return false
+	if cnt == 1:
+		consumables_inventory.erase(item_id)
+	else:
+		consumables_inventory[item_id] = cnt - 1
+	stats_updated.emit()
+	return true
+
+func buy_tome(tome_id: String) -> Dictionary:
+	if owned_tomes.has(tome_id):
+		return {"ok": false, "msg": "Este tratado ya reposa en tu biblioteca personal."}
+	var tome: Dictionary = CatalogDB.get_tome(tome_id)
+	if tome.is_empty():
+		return {"ok": false, "msg": "Tratado desconocido."}
+	var price: int = int(tome.get("price", 0))
+	if not modify_gold(-price):
+		return {"ok": false, "msg": "Necesitas %d G para adquirir «%s»." % [price, tome["name"]]}
+	owned_tomes.append(tome_id)
+	begin_batch()
+	var effects: Dictionary = tome.get("stats", {})
+	for k in effects.keys():
+		modify_stat(str(k), int(effects[k]))
+	end_batch()
+	if Chronicle != null:
+		Chronicle.record_event("tome_" + tome_id, "Nuevo tratado en la Bóveda",
+			"%s incorporó «%s» a su biblioteca de estudio (-%d G)." % [daughter_name, tome["name"], price], "study", 2)
+	return {"ok": true, "msg": "Estudiado y archivado: %s (-%d G)." % [tome["name"], price]}
+
+func get_tome_study_mod() -> float:
+	var pct: int = 0
+	for tid in owned_tomes:
+		var t: Dictionary = CatalogDB.get_tome(tid)
+		pct += int(t.get("study_pct", 0))
+	for cid in civic_investments:
+		var inv: Dictionary = CatalogDB.get_civic_investment(cid)
+		pct += int(inv.get("study_bonus_pct", 0))
+	return float(pct) / 100.0
+
+func get_tome_sat_reduction() -> int:
+	var red: int = 0
+	for tid in owned_tomes:
+		var t: Dictionary = CatalogDB.get_tome(tid)
+		red += int(t.get("sat_red", 0))
+	return red
+
+func buy_equipment(equip_id: String) -> Dictionary:
+	if owned_equipment.has(equip_id):
+		return equip_item(equip_id)
+	var eq: Dictionary = CatalogDB.get_equipment(equip_id)
+	if eq.is_empty():
+		return {"ok": false, "msg": "Pieza de equipo desconocida."}
+	var price: int = int(eq.get("price", 0))
+	if not modify_gold(-price):
+		return {"ok": false, "msg": "Necesitas %d G para forjar o adquirir «%s»." % [price, eq["name"]]}
+	owned_equipment.append(equip_id)
+	if str(eq.get("slot", "")) == "weapon":
+		equipped_weapon = equip_id
+	else:
+		equipped_accessory = equip_id
+	recalculate_derived_stats()
+	stats_updated.emit()
+	return {"ok": true, "msg": "Adquirido y equipado: %s (-%d G)." % [eq["name"], price]}
+
+func equip_item(equip_id: String) -> Dictionary:
+	if equip_id == "":
+		return {"ok": false, "msg": "Equipo inválido."}
+	if not owned_equipment.has(equip_id):
+		return {"ok": false, "msg": "Aún no posees esta pieza."}
+	var eq: Dictionary = CatalogDB.get_equipment(equip_id)
+	if eq.is_empty():
+		return {"ok": false, "msg": "Pieza desconocida."}
+	var slot: String = str(eq.get("slot", "weapon"))
+	if slot == "weapon":
+		if equipped_weapon == equip_id:
+			equipped_weapon = ""
+			recalculate_derived_stats()
+			stats_updated.emit()
+			return {"ok": true, "msg": "Arma desequipado: %s." % eq["name"]}
+		equipped_weapon = equip_id
+	else:
+		if equipped_accessory == equip_id:
+			equipped_accessory = ""
+			recalculate_derived_stats()
+			stats_updated.emit()
+			return {"ok": true, "msg": "Reliquia desequipado: %s." % eq["name"]}
+		equipped_accessory = equip_id
+	recalculate_derived_stats()
+	stats_updated.emit()
+	return {"ok": true, "msg": "Equipado: %s." % eq["name"]}
+
+func get_equip_mod(mod_key: String, default_v: float = 0.0) -> float:
+	var total: float = 0.0
+	var any_hit: bool = false
+	for eid in [equipped_weapon, equipped_accessory]:
+		if eid == "":
+			continue
+		var eq: Dictionary = CatalogDB.get_equipment(eid)
+		var mods: Dictionary = eq.get("mods", {})
+		if mods.has(mod_key):
+			total += float(mods[mod_key])
+			any_hit = true
+	if not any_hit:
+		return default_v
+	# Porcentajes almacenados como enteros (ej. 12 -> 0.12); planos como enteros directos
+	if mod_key.ends_with("_pct"):
+		return total / 100.0
+	return total
+
+func invest_civic(inv_id: String) -> Dictionary:
+	if civic_investments.has(inv_id):
+		return {"ok": false, "msg": "Este patronazgo cívico ya está activo a tu nombre."}
+	var inv: Dictionary = CatalogDB.get_civic_investment(inv_id)
+	if inv.is_empty():
+		return {"ok": false, "msg": "Edicto o patronazgo desconocido."}
+	var price: int = int(inv.get("price", 0))
+	if not modify_gold(-price):
+		return {"ok": false, "msg": "Necesitas %d G en las arcas para sellar «%s»." % [price, inv["name"]]}
+	civic_investments.append(inv_id)
+	begin_batch()
+	if int(inv.get("rep_gain", 0)) > 0:
+		modify_stat("father_reputation", int(inv["rep_gain"]))
+	if int(inv.get("susp_relief", 0)) > 0:
+		modify_stat("court_suspicion", -int(inv["susp_relief"]))
+	end_batch()
+	if Chronicle != null:
+		Chronicle.record_event("civic_" + inv_id, "Patronazgo sellado en Aethelgard",
+			"%s financió «%s» (-%d G), ganando respeto duradero ante el Senado." % [father_name, inv["name"], price], "patronage", 4)
+	return {"ok": true, "msg": "Carta sellada: %s (-%d G)." % [inv["name"], price]}
+
+func get_civic_dividend() -> int:
+	var g: int = maxi(0, int(estate_levels.get("treasury", 1)) - 1) * 18
+	for cid in civic_investments:
+		var inv: Dictionary = CatalogDB.get_civic_investment(cid)
+		g += int(inv.get("dividend", 0))
+	return g
+
+func get_civic_suspicion_relief() -> int:
+	var s: int = maxi(0, int(estate_levels.get("treasury", 1)) - 1)
+	s += int(round(get_equip_mod("suspicion_relief", 0.0)))
+	for cid in civic_investments:
+		var inv: Dictionary = CatalogDB.get_civic_investment(cid)
+		s += int(inv.get("bimester_susp_relief", 0))
+	return s
+
+func get_civic_stress_relief() -> int:
+	var st: int = maxi(0, int(estate_levels.get("sanctum", 1)) - 1) * 2
+	for cid in civic_investments:
+		var inv: Dictionary = CatalogDB.get_civic_investment(cid)
+		st += int(inv.get("stress_relief", 0))
+	return st
+
 func is_memory_card_unlocked(card: Dictionary) -> bool:
 	var cond: String = str(card.get("unlock", ""))
 	if cond.begins_with("trait:"):
@@ -720,7 +911,13 @@ func serialize() -> Dictionary:
 		"unlocked_synergies": unlocked_synergies.duplicate(),
 		"materials_inventory": materials_inventory.duplicate(),
 		"gifts_inventory": gifts_inventory.duplicate(),
-		"estate_levels": estate_levels.duplicate()
+		"estate_levels": estate_levels.duplicate(),
+		"consumables_inventory": consumables_inventory.duplicate(),
+		"owned_tomes": owned_tomes.duplicate(),
+		"owned_equipment": owned_equipment.duplicate(),
+		"equipped_weapon": equipped_weapon,
+		"equipped_accessory": equipped_accessory,
+		"civic_investments": civic_investments.duplicate()
 	}
 
 func deserialize(d: Dictionary) -> void:
@@ -817,12 +1014,41 @@ func deserialize(d: Dictionary) -> void:
 			if cnt > 0:
 				ginv[str(gk)] = cnt
 	gifts_inventory = ginv
-	var est: Dictionary = {"library": 1, "armory": 1, "conservatory": 1, "crucible": 1}
+	var est: Dictionary = {"library": 1, "armory": 1, "conservatory": 1, "crucible": 1, "sanctum": 1, "treasury": 1}
 	var saved_est: Variant = d.get("estate_levels", {})
 	if typeof(saved_est) == TYPE_DICTIONARY:
 		for k in saved_est.keys():
-			est[str(k)] = clampi(int(saved_est[k]), 1, 5)
+			est[str(k)] = clampi(int(saved_est[k]), 1, 8)
 	estate_levels = est
+
+	consumables_inventory.clear()
+	var saved_cons: Variant = d.get("consumables_inventory", {})
+	if typeof(saved_cons) == TYPE_DICTIONARY:
+		for ck in saved_cons.keys():
+			var cnt: int = maxi(0, int(saved_cons[ck]))
+			if cnt > 0:
+				consumables_inventory[str(ck)] = cnt
+	owned_tomes.clear()
+	for tk in d.get("owned_tomes", []):
+		var tid: String = str(tk)
+		if not CatalogDB.get_tome(tid).is_empty() and not owned_tomes.has(tid):
+			owned_tomes.append(tid)
+	owned_equipment.clear()
+	for ek in d.get("owned_equipment", []):
+		var eid: String = str(ek)
+		if not CatalogDB.get_equipment(eid).is_empty() and not owned_equipment.has(eid):
+			owned_equipment.append(eid)
+	equipped_weapon = str(d.get("equipped_weapon", ""))
+	if equipped_weapon != "" and not owned_equipment.has(equipped_weapon):
+		equipped_weapon = ""
+	equipped_accessory = str(d.get("equipped_accessory", ""))
+	if equipped_accessory != "" and not owned_equipment.has(equipped_accessory):
+		equipped_accessory = ""
+	civic_investments.clear()
+	for ik in d.get("civic_investments", []):
+		var iid: String = str(ik)
+		if not CatalogDB.get_civic_investment(iid).is_empty() and not civic_investments.has(iid):
+			civic_investments.append(iid)
 
 	recalculate_derived_stats()
 	father_energy = clampi(int(d.get("father_energy", father_max_energy)), 0, father_max_energy)

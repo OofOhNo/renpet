@@ -148,7 +148,7 @@ func get_status_quote(rival_id: String) -> String:
 	var st: Dictionary = RelationshipManager.get_state(rival_id)
 	var standing: Dictionary = get_standing(rival_id)
 	if int(st.get("respect", 0)) >= 45:
-		return str(d.get("high_respect_quote", ""))
+		return str(d.get("respect_high_quote", d.get("high_respect_quote", "")))
 	if int(standing.get("diff", 0)) >= 0:
 		return str(d.get("clash_win_quote", ""))
 	return str(d.get("clash_lose_quote", ""))

@@ -280,9 +280,11 @@ func start_expedition(zone_idx: int, comp_id: String, comp_display_name: String)
 
 	var outfit_hp: int = int(round(GameState.get_outfit_mod("combat_hp", 0.0)))
 	var outfit_sh: int = int(round(GameState.get_outfit_mod("combat_shield", 0.0)))
-	player_max_hp = 180 + GameState.temple * 2 + GameState.gravedad + (40 if GameState.has_mutation("sangre_pesada") else 0) + outfit_hp
+	var equip_hp: int = int(round(GameState.get_equip_mod("combat_hp", 0.0)))
+	var equip_sh: int = int(round(GameState.get_equip_mod("combat_shield", 0.0)))
+	player_max_hp = 180 + GameState.temple * 2 + GameState.gravedad + (40 if GameState.has_mutation("sangre_pesada") else 0) + outfit_hp + equip_hp
 	player_hp = player_max_hp
-	player_shield = (15 if GameState.has_mutation("paso_de_luz") else 0) + outfit_sh
+	player_shield = (15 if GameState.has_mutation("paso_de_luz") else 0) + outfit_sh + equip_sh
 	player_max_ap = 4 if GameState.has_mutation("paradoja_menor") else 3
 	player_ap = player_max_ap + (1 if GameState.has_mutation("bendicion_del_tiempo") else 0)
 	rewind_charges = 2 if GameState.unlocked_synergies.has("ephemeris_weaver") else 1
@@ -299,6 +301,8 @@ func start_expedition(zone_idx: int, comp_id: String, comp_display_name: String)
 	combat_log.append("[color=#FFE082]✦ Expedición de 4 Nodos iniciada en %s junto a %s%s.[/color]" % [z["name"], companion_name, bond_note])
 	if outfit_hp > 0:
 		combat_log.append("[color=#80DEEA]◈ Cota del Horizonte activa: +%d HP máx. y +%d Escudo inicial.[/color]" % [outfit_hp, outfit_sh])
+	if equip_hp > 0 or equip_sh > 0 or int(round(GameState.get_equip_mod("atk_flat", 0.0))) > 0:
+		combat_log.append("[color=#FFE082]⚔ Equipo forjado activo (+%d PV, +%d Escudo, +%d Ataque).[/color]" % [equip_hp, equip_sh, int(round(GameState.get_equip_mod("atk_flat", 0.0)))])
 	combat_updated.emit()
 	return {"ok": true}
 
@@ -601,16 +605,62 @@ func _execute_companion_active_skill(dmg_mult: float) -> void:
 			_apply_damage_to_enemy(d, 25, "⚔ Guardia Solitaria de Aethelgard (+28 Escudo)")
 
 func _apply_damage_to_enemy(dmg: int, stagger_add: int, skill_label: String) -> void:
-	enemy_hp = maxi(0, enemy_hp - dmg)
+	var eq_atk: int = int(round(GameState.get_equip_mod("atk_flat", 0.0))) if dmg > 0 else 0
+	var final_dmg: int = dmg + eq_atk
+	enemy_hp = maxi(0, enemy_hp - final_dmg)
 	if not enemy_staggered:
 		var bonus_stagger: int = 15 if companion_id == "soren" else 0
+		if stagger_add > 0:
+			bonus_stagger += int(round(GameState.get_equip_mod("stagger_flat", 0.0)))
 		enemy_stagger += stagger_add + bonus_stagger
 		if enemy_stagger >= enemy_max_stagger:
 			enemy_stagger = enemy_max_stagger
 			enemy_staggered = true
 			combat_fx.emit("stagger")
 			combat_log.append("[color=#FFF176]✦ ¡QUIEBRE DE GUARDIA! %s queda aturdido (Daño x1.5 y pierde su turno).[/color]" % enemy_name)
-	combat_log.append("%s inflige [b]%d[/b] de daño a %s." % [skill_label, dmg, enemy_name])
+	combat_log.append("%s inflige [b]%d[/b] de daño a %s." % [skill_label, final_dmg, enemy_name])
+
+func use_combat_consumable(item_id: String) -> Dictionary:
+	if not in_combat or player_hp <= 0:
+		return {"ok": false, "msg": "No estás en un combate activo."}
+	var item: Dictionary = CatalogDB.get_consumable(item_id)
+	if item.is_empty():
+		return {"ok": false, "msg": "Consumible desconocido."}
+	if not GameState.consume_combat_item(item_id):
+		return {"ok": false, "msg": "No quedan existencias de %s." % item["name"]}
+	var kind: String = str(item.get("kind", ""))
+	var pwr: int = int(item.get("power", 0))
+	match kind:
+		"heal":
+			player_hp = mini(player_max_hp, player_hp + pwr)
+			var sr: int = int(item.get("stress_relief", 0))
+			if sr > 0:
+				GameState.modify_stat("stress", -sr)
+			combat_fx.emit("buff")
+			combat_log.append("[color=#81C784]❖ %s (+%d PV%s).[/color]" % [item["name"], pwr, ", -%d Estrés" % sr if sr > 0 else ""])
+			combat_updated.emit()
+		"shield":
+			player_shield += pwr
+			combat_fx.emit("buff")
+			combat_log.append("[color=#80DEEA]❖ %s (+%d Escudo astral).[/color]" % [item["name"], pwr])
+			combat_updated.emit()
+		"ap":
+			player_ap += pwr
+			combat_fx.emit("buff")
+			combat_log.append("[color=#FFE082]❖ %s (+%d PA inmediatos).[/color]" % [item["name"], pwr])
+			combat_updated.emit()
+		"stagger":
+			var dmg: int = int(item.get("dmg", 14))
+			_apply_damage_to_enemy(dmg, pwr, "❖ " + str(item["name"]))
+			_check_enemy_defeat_or_continue()
+		"cleanse":
+			var sat_rel: int = int(item.get("sat_relief", 12))
+			GameState.modify_stat("astral_saturation", -sat_rel)
+			player_hp = mini(player_max_hp, player_hp + pwr)
+			combat_fx.emit("buff")
+			combat_log.append("[color=#80DEEA]❖ %s (-%d%% Saturación, +%d PV).[/color]" % [item["name"], sat_rel, pwr])
+			combat_updated.emit()
+	return {"ok": true, "msg": "Consumible aplicado: %s." % item["name"]}
 
 func end_player_turn() -> void:
 	if not in_combat:
@@ -847,11 +897,14 @@ func get_festival_preview(contest_idx: int) -> Dictionary:
 		my_total += 60
 	# Bonificación de Vestuario de la Boutique y Temperamento
 	if c["id"] == "contest_blades":
-		my_total += GameState.get_outfit_mod("festival_blades")
+		my_total += int(round(GameState.get_outfit_mod("festival_blades")))
+		my_total += int(round(GameState.get_equip_mod("atk_flat", 0.0))) * 2
 	elif c["id"] == "contest_astrolabe":
-		my_total += GameState.get_outfit_mod("festival_astro")
+		my_total += int(round(GameState.get_outfit_mod("festival_astro")))
+		my_total += int(round(GameState.get_equip_mod("study_pct", 0.0) * 200.0 + GameState.get_tome_study_mod() * 120.0))
 	elif c["id"] == "contest_moons":
-		my_total += GameState.get_outfit_mod("festival_gala")
+		my_total += int(round(GameState.get_outfit_mod("festival_gala")))
+		my_total += int(round(GameState.get_equip_mod("court_pct", 0.0) * 200.0))
 	for c_dict in GameState.get_equipped_memory_cards():
 		my_total += int(int(c_dict.get("fest_bonus", 0)) * 0.45)
 	if GameState.mood_calm >= 18:

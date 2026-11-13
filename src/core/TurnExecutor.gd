@@ -356,7 +356,7 @@ func _father_gold(task: Dictionary) -> int:
 func _activity_gold(act: Dictionary) -> int:
 	var money: int = int(act["cost_or_wage"])
 	if money > 0:
-		var mult: float = 1.0
+		var mult: float = 1.0 + GameState.get_equip_mod("income_pct", 0.0)
 		if act.get("urban", false):
 			mult += TimeManager.get_income_bonus()
 		if act.get("recital", false) and GameState.unlocked_synergies.has("alabaster_rose"):
@@ -372,6 +372,8 @@ func _gain_multiplier(stat_key: String, act: Dictionary, supervised: bool, inspi
 			m += 0.20
 	m += TimeManager.get_gain_bonus(stat_key)
 	m += GameState.get_mood_activity_mod(str(act["id"]))
+	if str(act.get("category", "")) == "class":
+		m += GameState.get_tome_study_mod() + GameState.get_equip_mod("study_pct", 0.0)
 	if CatalogDB.MARTIAL_IDS.has(act["id"]):
 		m += GameState.get_outfit_mod("martial_pct", 0.0)
 		if GameState.unlocked_synergies.has("horizon_valkyrie"):
@@ -381,7 +383,10 @@ func _gain_multiplier(stat_key: String, act: Dictionary, supervised: bool, inspi
 		if GameState.unlocked_synergies.has("ephemeris_weaver"):
 			m += 0.25
 	if act["id"] in ["class_conservatory", "job_amphitheater"]:
-		m += GameState.get_outfit_mod("court_pct", 0.0)
+		m += GameState.get_outfit_mod("court_pct", 0.0) + GameState.get_equip_mod("court_pct", 0.0)
+		m += float(maxi(0, int(GameState.estate_levels.get("treasury", 1)) - 1)) * 0.03
+	if act["id"] in ["job_sanatorium", "rest_manor"]:
+		m += float(maxi(0, int(GameState.estate_levels.get("sanctum", 1)) - 1)) * 0.04
 	if GameState.has_mutation("pulso_cristalino") and act["id"] in ["class_astrolabe", "job_clockwork"]:
 		m += 0.15
 	if GameState.has_mutation("sangre_pesada") and act["id"] == "class_conservatory" and GameState.equipped_outfit != "gala":
@@ -450,6 +455,8 @@ func _facility_name(key: String) -> String:
 		"armory": return "Patio de Lanzas"
 		"conservatory": return "Salón de Lotos"
 		"crucible": return "Cámara del Crisol"
+		"sanctum": return "Jardín Botánico-Sanatorio"
+		"treasury": return "Salón Diplomático"
 	return key
 
 ## Micro-eventos deterministas (misma partida + turno + bloque => mismo resultado)

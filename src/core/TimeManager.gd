@@ -182,6 +182,22 @@ func apply_bimester_upkeep() -> Array[String]:
 	if relieved > 0:
 		lines.append("El Salón de Lotos y Música alivió %d de Estrés." % relieved)
 
+	# Rentas cívicas, Jardín Sanatorio y Salón Diplomático
+	var dividend: int = GameState.get_civic_dividend()
+	if dividend > 0:
+		GameState.modify_gold(dividend)
+		lines.append("Patronazgos y Salón Diplomático rindieron +%d G en rentas." % dividend)
+	var extra_stress_rel: int = GameState.get_civic_stress_relief()
+	if extra_stress_rel > 0:
+		var s_drop: int = -GameState.modify_stat("stress", -extra_stress_rel)
+		if s_drop > 0:
+			lines.append("Jardín Sanatorio y hospicios mitigaron -%d de Estrés." % s_drop)
+	var sanctum_lvl: int = int(GameState.estate_levels.get("sanctum", 1))
+	if sanctum_lvl >= 2:
+		var anc_gain: int = GameState.modify_stat("human_anchor", 1 if sanctum_lvl < 5 else 2)
+		if anc_gain > 0:
+			lines.append("Jardín Botánico-Sanatorio nv.%d fortaleció +%d de Anclaje Humano." % [sanctum_lvl, anc_gain])
+
 	# Régimen de dieta (si no alcanza el oro, la casa cae a Dieta Austera)
 	var diet: Dictionary = CatalogDB.get_diet(int(GameState.current_diet))
 	var paid: bool = GameState.modify_gold(-int(diet["cost"]))
@@ -213,12 +229,17 @@ func apply_bimester_upkeep() -> Array[String]:
 	for l in CrucibleManager.apply_bimester_decay():
 		lines.append(l)
 
-	# Gala Real alivia sospecha; Sello débil o canales la elevan
+	# Gala Real y patronazgos/accesorios alivian sospecha; Sello débil o canales la elevan
 	var gala_rel: int = int(round(GameState.get_outfit_mod("suspicion_relief", 0.0)))
 	if gala_rel > 0 and GameState.court_suspicion > 0:
 		var drop: int = -GameState.modify_stat("court_suspicion", -gala_rel)
 		if drop > 0:
 			lines.append("La Gala Real de Alabastro disipa sospechas en la Corte (-%d Sospecha)." % drop)
+	var civic_susp_rel: int = GameState.get_civic_suspicion_relief()
+	if civic_susp_rel > 0 and GameState.court_suspicion > 0:
+		var c_drop: int = -GameState.modify_stat("court_suspicion", -civic_susp_rel)
+		if c_drop > 0:
+			lines.append("Salón Diplomático, reliquias y patronazgos enfrían rumores (-%d Sospecha)." % c_drop)
 	if GameState.seal_integrity < 60:
 		var leak: int = 8 if GameState.seal_integrity < 40 else 5
 		var added_s: int = GameState.modify_stat("court_suspicion", leak)

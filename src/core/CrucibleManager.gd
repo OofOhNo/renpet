@@ -43,7 +43,7 @@ func get_saturation_gain(mat: Dictionary) -> int:
 	var base: int = int(mat.get("saturation", 0))
 	if base <= 0:
 		return 0
-	var red: int = 2 * (get_crucible_level() - 1)
+	var red: int = 2 * (get_crucible_level() - 1) + GameState.get_tome_sat_reduction()
 	var after: int = maxi(4, base - red)
 	var outfit_red: float = GameState.get_outfit_mod("sat_reduction", 0.0)
 	if outfit_red > 0.0:
@@ -216,7 +216,7 @@ func purify_saturation() -> Dictionary:
 func apply_bimester_decay() -> Array[String]:
 	var lines: Array[String] = []
 	if GameState.astral_saturation > 0:
-		var decay: int = NATURAL_DECAY + 2 * (get_crucible_level() - 1)
+		var decay: int = NATURAL_DECAY + 2 * (get_crucible_level() - 1) + GameState.get_tome_sat_reduction() + maxi(0, int(GameState.estate_levels.get("sanctum", 1)) - 1)
 		var removed: int = -GameState.modify_stat("astral_saturation", -decay)
 		if removed > 0:
 			lines.append("El metabolismo estelar disipó %d%% de Saturación Astral." % removed)

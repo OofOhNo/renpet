@@ -651,7 +651,9 @@ func _build_npc_encounter(d: Dictionary) -> void:
 			var c_known: bool = RelationshipManager.is_known(cand_id)
 			var c_ev: Dictionary = RelationshipManager.get_next_bond_event(cand_id)
 			var star_tag: String = " ★" if bool(c_ev.get("ok", false)) else ""
-			var disp_name: String = (str(c_data.get("name", cand_id)).split(" ")[0] if c_known else "???") + star_tag
+			var raw_name: String = str(c_data.get("name", cand_id))
+			var short_name: String = raw_name.replace("Caelum 'El Perro Gris'", "Caelum").replace(" de Caelum", "").replace("Príncipe ", "")
+			var disp_name: String = (short_name if c_known else "???") + star_tag
 			var sw_btn := AstralTheme.button(disp_name, "PrimaryButton" if npc_id == cand_id else "TabLikeButton")
 			sw_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			sw_btn.custom_minimum_size.y = 36
@@ -915,7 +917,13 @@ func _build_district_facility(d: Dictionary) -> void:
 			_build_espejo_facility()
 
 func _build_torre_facility() -> void:
-	var host := _make_facility_scroll()
+	var tabs := TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs.custom_minimum_size = Vector2(0, 360)
+	_facility_panel.add_child(tabs)
+
+	var host: VBoxContainer = BaseWindow.add_tab(tabs, "  Archivos y Mazo  ")
 	var p := AstralTheme.panel("CardPanel")
 	host.add_child(p)
 	var v := AstralTheme.vbox(8)
@@ -953,9 +961,51 @@ func _build_torre_facility() -> void:
 		r.add_child(b)
 		v.add_child(card)
 
+	var tome_v: VBoxContainer = BaseWindow.add_tab(tabs, "  Biblioteca de Tratados  ")
+	tome_v.add_child(AstralTheme.chip("Tratados antiguos y códices coleccionables · Oro: %d G · %d/%d adquiridos" % [GameState.gold, GameState.owned_tomes.size(), CatalogDB.STUDY_TOMES.size()], AstralTheme.GOLD_PALE, AstralTheme.GOLD, 13))
+	for t in CatalogDB.STUDY_TOMES:
+		if GameState.age < int(t.get("min_age", 12)):
+			continue
+		var tid: String = str(t["id"])
+		var owned: bool = GameState.owned_tomes.has(tid)
+		var price: int = int(t["price"])
+		var tc := AstralTheme.panel("GlowPanel" if owned else "CardPanel")
+		tc.tooltip_text = str(t["desc"])
+		var th := AstralTheme.hbox(10)
+		tc.add_child(th)
+		var tvign := AstralTheme.vignette_card(str(t.get("icon", "res://assets/art/illus_study_astrolabe.png")), Vector2(64, 54), AstralTheme.TURQ if owned else AstralTheme.GOLD_DARK)
+		tvign.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		th.add_child(tvign)
+		var tinf := AstralTheme.vbox(3)
+		tinf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		th.add_child(tinf)
+		tinf.add_child(AstralTheme.label(str(t["name"]), "SubLabel", AstralTheme.TURQ if owned else AstralTheme.GOLD_PALE, true))
+		tinf.add_child(AstralTheme.label(str(t["desc"]), "CaptionLabel", AstralTheme.IVORY, true))
+		var tb := AstralTheme.button(AstralTheme.G_CHECK + " Archivado" if owned else "Adquirir (%d G)" % price, "PrimaryButton" if (not owned and GameState.gold >= price) else "")
+		tb.custom_minimum_size = Vector2(148, 42)
+		tb.disabled = owned or GameState.gold < price
+		tb.pressed.connect(func() -> void:
+			var r: Dictionary = GameState.buy_tome(tid)
+			AstralAudio.play_triumph() if bool(r.get("ok", false)) else AstralAudio.play_warn()
+			toast.emit(str(r.get("msg", "")), "good" if bool(r.get("ok", false)) else "warn")
+			state_changed.emit()
+			refresh())
+		th.add_child(tb)
+		tome_v.add_child(tc)
+
+	tabs.current_tab = clampi(int(_facility_tab_by_district.get("torre", 0)), 0, tabs.get_tab_count() - 1)
+	tabs.tab_changed.connect(func(idx: int) -> void:
+		_facility_tab_by_district["torre"] = idx)
+
 func _build_patio_facility() -> void:
-	# Práctica de Esgrima directa + Expediciones de 4 Nodos
-	var host := _make_facility_scroll()
+	# Práctica de Esgrima directa + Expediciones + Armería de Élite
+	var tabs := TabContainer.new()
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs.custom_minimum_size = Vector2(0, 360)
+	_facility_panel.add_child(tabs)
+
+	var host: VBoxContainer = BaseWindow.add_tab(tabs, "  Esgrima y Expediciones  ")
 	var duel_p := AstralTheme.panel("GlowPanel")
 	host.add_child(duel_p)
 	var dh := AstralTheme.hbox(10)
@@ -1050,6 +1100,62 @@ func _build_patio_facility() -> void:
 			expedition_requested.emit(zi, cur_comp, cname))
 		zr.add_child(b_go)
 		ev.add_child(card)
+
+	var arm_v: VBoxContainer = BaseWindow.add_tab(tabs, "  Armería de Élite  ")
+	arm_v.add_child(AstralTheme.chip("Forja marcial e instrumental de exploración · Oro: %d G" % GameState.gold, AstralTheme.GOLD_PALE, AstralTheme.GOLD, 13))
+	_build_equipment_shop_list(arm_v, "patio")
+
+	tabs.current_tab = clampi(int(_facility_tab_by_district.get("patio", 0)), 0, tabs.get_tab_count() - 1)
+	tabs.tab_changed.connect(func(idx: int) -> void:
+		_facility_tab_by_district["patio"] = idx)
+
+func _build_equipment_shop_list(parent: VBoxContainer, shop_filter: String) -> void:
+	var egrid := GridContainer.new()
+	egrid.columns = 2
+	egrid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	egrid.add_theme_constant_override("h_separation", 8)
+	egrid.add_theme_constant_override("v_separation", 8)
+	parent.add_child(egrid)
+	for eq in CatalogDB.EQUIPMENT:
+		if str(eq.get("shop", "")) != shop_filter:
+			continue
+		if GameState.age < int(eq.get("min_age", 12)):
+			continue
+		var eid: String = str(eq["id"])
+		var slot: String = str(eq.get("slot", "weapon"))
+		var owned: bool = GameState.owned_equipment.has(eid)
+		var equipped: bool = (GameState.equipped_weapon == eid) or (GameState.equipped_accessory == eid)
+		var price: int = int(eq["price"])
+		var ec := AstralTheme.panel("GlowPanel" if equipped else "CardPanel")
+		ec.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ec.tooltip_text = str(eq["desc"])
+		var ev := AstralTheme.vbox(6)
+		ec.add_child(ev)
+		var eh := AstralTheme.hbox(8)
+		ev.add_child(eh)
+		var evign := AstralTheme.vignette_card(str(eq.get("icon", "")), Vector2(54, 48), AstralTheme.TURQ if equipped else AstralTheme.GOLD_DARK)
+		evign.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		eh.add_child(evign)
+		var einf := AstralTheme.vbox(2)
+		einf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		eh.add_child(einf)
+		einf.add_child(AstralTheme.label("%s (%s)" % [str(eq["name"]), "Arma" if slot == "weapon" else "Reliquia"], "CaptionLabel", AstralTheme.TURQ if equipped else AstralTheme.GOLD_PALE, true))
+		einf.add_child(AstralTheme.label(str(eq["desc"]), "CaptionLabel", AstralTheme.IVORY, true))
+		var eb := AstralTheme.button(
+			"✓ Equipado (Quitar)" if equipped else ("Equipar" if owned else "Forjar (%d G)" % price),
+			"PrimaryButton" if (owned or GameState.gold >= price) else ""
+		)
+		eb.custom_minimum_size.y = 36
+		eb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		eb.disabled = (not owned) and GameState.gold < price
+		eb.pressed.connect(func() -> void:
+			var r: Dictionary = GameState.buy_equipment(eid) if not owned else GameState.equip_item(eid)
+			AstralAudio.play_confirm() if bool(r.get("ok", false)) else AstralAudio.play_warn()
+			toast.emit(str(r.get("msg", "")), "good" if bool(r.get("ok", false)) else "warn")
+			state_changed.emit()
+			refresh())
+		ev.add_child(eb)
+		egrid.add_child(ec)
 
 func _build_acueductos_facility() -> void:
 	var tabs := TabContainer.new()
@@ -1181,6 +1287,53 @@ func _build_acueductos_facility() -> void:
 		refresh())
 	tv.add_child(b_ton)
 	doc_v.add_child(ton_p)
+
+	doc_v.add_child(AstralTheme.separator())
+	doc_v.add_child(AstralTheme.label("⚗ Botica de Campaña (Consumibles 0 PA en Expediciones) · Oro: %d G" % GameState.gold, "SubLabel", AstralTheme.GOLD))
+	var cgrid := GridContainer.new()
+	cgrid.columns = 2
+	cgrid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cgrid.add_theme_constant_override("h_separation", 8)
+	cgrid.add_theme_constant_override("v_separation", 8)
+	doc_v.add_child(cgrid)
+	for item in CatalogDB.COMBAT_CONSUMABLES:
+		if GameState.age < int(item.get("min_age", 12)):
+			continue
+		var iid: String = str(item["id"])
+		var price: int = int(item["price"])
+		var cnt: int = GameState.get_consumable_count(iid)
+		var cc := AstralTheme.panel("CardPanel")
+		cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cc.tooltip_text = str(item["desc"])
+		var cvb := AstralTheme.vbox(6)
+		cc.add_child(cvb)
+		var ch_row := AstralTheme.hbox(8)
+		cvb.add_child(ch_row)
+		var cvign := AstralTheme.vignette_card(str(item.get("icon", "")), Vector2(44, 44), AstralTheme.TURQ)
+		cvign.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ch_row.add_child(cvign)
+		var cinf := AstralTheme.vbox(2)
+		cinf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ch_row.add_child(cinf)
+		var top_c := AstralTheme.hbox(6)
+		cinf.add_child(top_c)
+		var cnm := AstralTheme.label(str(item["name"]), "CaptionLabel", AstralTheme.GOLD_PALE, true)
+		cnm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top_c.add_child(cnm)
+		if cnt > 0:
+			top_c.add_child(AstralTheme.chip("×%d" % cnt, AstralTheme.TURQ, null, 11))
+		cinf.add_child(AstralTheme.label(str(item["desc"]), "CaptionLabel", AstralTheme.IVORY, true))
+		var cb := AstralTheme.button("Comprar (%d G)" % price, "PrimaryButton" if GameState.gold >= price else "")
+		cb.custom_minimum_size.y = 34
+		cb.disabled = GameState.gold < price
+		cb.pressed.connect(func() -> void:
+			var r: Dictionary = GameState.buy_consumable(iid)
+			AstralAudio.play_confirm() if bool(r.get("ok", false)) else AstralAudio.play_warn()
+			toast.emit(str(r.get("msg", "")), "good" if bool(r.get("ok", false)) else "warn")
+			state_changed.emit()
+			refresh())
+		cvb.add_child(cb)
+		cgrid.add_child(cc)
 
 	tabs.current_tab = clampi(int(_facility_tab_by_district.get("acueductos", 0)), 0, tabs.get_tab_count() - 1)
 	tabs.tab_changed.connect(func(idx: int) -> void:
@@ -1412,6 +1565,43 @@ func _build_palacio_facility() -> void:
 				toast.emit(str(dr.get("msg", "")), "warn"))
 		btn_row.add_child(rbtn)
 		sen_v.add_child(rc)
+
+	# Sub-tab 4 (después de Tabs 0..2 para conservar índices): Patronazgo Cívico y Joyería Real
+	var pat_v: VBoxContainer = BaseWindow.add_tab(tabs, "  Patronazgo y Joyería  ")
+	pat_v.add_child(AstralTheme.chip("Altas inversiones en Aethelgard y reliquias de corte · Oro: %d G" % GameState.gold, AstralTheme.GOLD_PALE, AstralTheme.GOLD, 13))
+	pat_v.add_child(AstralTheme.label("🏛 Patronazgos e Inversiones Cívicas", "SubLabel", AstralTheme.GOLD))
+	for inv in CatalogDB.CIVIC_INVESTMENTS:
+		if GameState.age < int(inv.get("min_age", 12)):
+			continue
+		var iid: String = str(inv["id"])
+		var active: bool = GameState.civic_investments.has(iid)
+		var price: int = int(inv["price"])
+		var ic := AstralTheme.panel("GlowPanel" if active else "CardPanel")
+		ic.tooltip_text = str(inv["desc"])
+		var ih := AstralTheme.hbox(10)
+		ic.add_child(ih)
+		var ivign := AstralTheme.vignette_card(str(inv.get("icon", "")), Vector2(64, 52), AstralTheme.GOOD if active else AstralTheme.GOLD_DARK)
+		ivign.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ih.add_child(ivign)
+		var iinf := AstralTheme.vbox(3)
+		iinf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ih.add_child(iinf)
+		iinf.add_child(AstralTheme.label(str(inv["name"]), "SubLabel", AstralTheme.GOOD if active else AstralTheme.GOLD_PALE, true))
+		iinf.add_child(AstralTheme.label(str(inv["desc"]), "CaptionLabel", AstralTheme.IVORY, true))
+		var ib := AstralTheme.button(AstralTheme.G_CHECK + " Activo" if active else "Financiar (%d G)" % price, "PrimaryButton" if (not active and GameState.gold >= price) else "")
+		ib.custom_minimum_size = Vector2(154, 42)
+		ib.disabled = active or GameState.gold < price
+		ib.pressed.connect(func() -> void:
+			var r: Dictionary = GameState.invest_civic(iid)
+			AstralAudio.play_triumph() if bool(r.get("ok", false)) else AstralAudio.play_warn()
+			toast.emit(str(r.get("msg", "")), "good" if bool(r.get("ok", false)) else "warn")
+			state_changed.emit()
+			refresh())
+		ih.add_child(ib)
+		pat_v.add_child(ic)
+	pat_v.add_child(AstralTheme.separator())
+	pat_v.add_child(AstralTheme.label("✦ Joyería e Insignias de Corte", "SubLabel", AstralTheme.GOLD))
+	_build_equipment_shop_list(pat_v, "palacio")
 
 	tabs.current_tab = clampi(int(_facility_tab_by_district.get("palacio", 0)), 0, tabs.get_tab_count() - 1)
 	tabs.tab_changed.connect(func(idx: int) -> void:

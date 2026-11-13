@@ -644,3 +644,180 @@ func check_and_unlock_synergies() -> Array[Dictionary]:
 			Chronicle.record_event("synergy_" + syn_id, "¡Sinergia de Prestigio Despertada!",
 				"%s obtuvo el título '%s': %s" % [GameState.daughter_name, syn["title"], syn["bonus_desc"]], "prestige", 5)
 	return newly_unlocked
+
+# --- SUMIDEROS DE ORO ESTRATÉGICOS (CONSUMIBLES, TOMOS, EQUIPO, PATRONAZGO CÍVICO) ---
+const COMBAT_CONSUMABLES: Array[Dictionary] = [
+	{
+		"id": "tonic_crimson", "name": "Elixir de Sangre Solar", "price": 140, "min_age": 12,
+		"kind": "heal", "power": 38, "stress_relief": 4,
+		"icon": "res://assets/ui/relic_goddess_tear.png",
+		"desc": "Restaura +38 PV de combate y templa 4 de Estrés al instante (0 PA)."
+	},
+	{
+		"id": "ward_amber", "name": "Talismán de Ámbar Celeste", "price": 190, "min_age": 13,
+		"kind": "shield", "power": 32,
+		"icon": "res://assets/ui/relic_melted_hourglass.png",
+		"desc": "Otorga +32 de Escudo astral inmediato durante la incursión (0 PA)."
+	},
+	{
+		"id": "phial_aether", "name": "Vial de Chispa Sideral", "price": 240, "min_age": 14,
+		"kind": "ap", "power": 2,
+		"icon": "res://assets/ui/relic_comet_dust.png",
+		"desc": "Concede +2 PA inmediatos en el turno para encadenar cartas (0 PA)."
+	},
+	{
+		"id": "incense_gravity", "name": "Incensario de Plomo Puro", "price": 210, "min_age": 14,
+		"kind": "stagger", "power": 30, "dmg": 14,
+		"icon": "res://assets/ui/relic_obsidian_shard.png",
+		"desc": "Fractura la Postura enemiga (-30 Postura, +14 Daño directo) a 0 PA."
+	},
+	{
+		"id": "salve_purifier", "name": "Bálsamo del Horno Blanco", "price": 290, "min_age": 15,
+		"kind": "cleanse", "power": 22, "sat_relief": 12,
+		"icon": "res://assets/ui/relic_mercury_dew.png",
+		"desc": "Purifica -12 de Saturación cósmica en batalla y restaura +22 PV (0 PA)."
+	}
+]
+
+const STUDY_TOMES: Array[Dictionary] = [
+	{
+		"id": "tome_celestial_trig", "name": "Tratado de Efemérides Inversas", "price": 340, "min_age": 12,
+		"stats": {"erudicion": 14, "resonancia": 6}, "study_pct": 6, "sat_red": 0,
+		"icon": "res://assets/art/illus_study_astrolabe.png",
+		"desc": "+14 Erudición, +6 Resonancia y +6% permanente en todas las Clases de la Academia."
+	},
+	{
+		"id": "tome_gilt_rhetoric", "name": "Códice del Salterio y la Etiqueta", "price": 460, "min_age": 14,
+		"stats": {"gracia": 16, "magnetismo": 10}, "study_pct": 6, "sat_red": 0,
+		"icon": "res://assets/art/illus_conservatory_harp.png",
+		"desc": "+16 Gracia, +10 Magnetismo y +6% permanente en Clases y salones de Corte."
+	},
+	{
+		"id": "tome_iron_doctrine", "name": "Manual de Esgrima del León Dorado", "price": 580, "min_age": 14,
+		"stats": {"temple": 18, "destreza": 14}, "study_pct": 8, "sat_red": 0,
+		"icon": "res://assets/art/illus_martial_courtyard.png",
+		"desc": "+18 Temple, +14 Destreza y +8% permanente al rendimiento académico y marcial."
+	},
+	{
+		"id": "tome_cradle_alembics", "name": "Compendio del Alambique de Meridia", "price": 740, "min_age": 16,
+		"stats": {"gravedad": 16, "resonancia": 14}, "study_pct": 5, "sat_red": 2,
+		"icon": "res://assets/art/illus_sanatorium_garden.png",
+		"desc": "+16 Gravedad, +14 Resonancia, +5% Clases y reduce -2 la Saturación generada."
+	},
+	{
+		"id": "tome_lost_chronicle", "name": "Atlas Secreto del Primer Solsticio", "price": 980, "min_age": 17,
+		"stats": {"erudicion": 22, "temple": 16, "father_reputation": 10}, "study_pct": 10, "sat_red": 2,
+		"icon": "res://assets/ui/relic_quartz_marrow.png",
+		"desc": "+22 Erudición, +16 Temple, +10 Rep. Paterna, +10% Clases y -2 Saturación por bloque."
+	}
+]
+
+const EQUIPMENT: Array[Dictionary] = [
+	{
+		"id": "wpn_ashwood_spear", "name": "Lanza de Fresno Herrado", "slot": "weapon", "shop": "patio",
+		"price": 320, "min_age": 12,
+		"mods": {"atk_flat": 5, "combat_hp": 12, "stagger_flat": 3},
+		"icon": "res://assets/art/illus_martial_courtyard.png",
+		"desc": "+5 Ataque en cartas, +3 Daño de Postura y +12 PV en incursiones."
+	},
+	{
+		"id": "wpn_clockwork_rapier", "name": "Estoque de Cuerda de Bronce", "slot": "weapon", "shop": "patio",
+		"price": 620, "min_age": 14,
+		"mods": {"atk_flat": 10, "combat_shield": 10, "stagger_flat": 6},
+		"icon": "res://assets/art/bg_zone_clocks.png",
+		"desc": "+10 Ataque, +6 Postura y +10 de Escudo inicial en combate."
+	},
+	{
+		"id": "wpn_star_glaive", "name": "Alabarda de Acero Cometa", "slot": "weapon", "shop": "patio",
+		"price": 1050, "min_age": 16,
+		"mods": {"atk_flat": 16, "combat_hp": 25, "stagger_flat": 10},
+		"icon": "res://assets/art/bg_zone_crystal.png",
+		"desc": "+16 Ataque, +10 Postura y +25 PV máximos en mazmorras y Torneos."
+	},
+	{
+		"id": "wpn_sovereign_blade", "name": "Hoja Juramentada del Alba", "slot": "weapon", "shop": "patio",
+		"price": 1550, "min_age": 18,
+		"mods": {"atk_flat": 22, "combat_hp": 35, "combat_shield": 18, "stagger_flat": 12},
+		"icon": "res://assets/art/bg_prologue_goddess.png",
+		"desc": "Forja maestra: +22 Ataque, +12 Postura, +35 PV y +18 Escudo inicial."
+	},
+	{
+		"id": "acc_silver_compass", "name": "Brújula de Latón Naval", "slot": "accessory", "shop": "patio",
+		"price": 340, "min_age": 12,
+		"mods": {"income_pct": 12, "combat_hp": 10},
+		"icon": "res://assets/art/illus_study_astrolabe.png",
+		"desc": "+12% Oro obtenido en empleos y +10 PV en expediciones."
+	},
+	{
+		"id": "acc_meridia_brooch", "name": "Broche de Zafiro de Meridia", "slot": "accessory", "shop": "palacio",
+		"price": 590, "min_age": 14,
+		"mods": {"court_pct": 14, "suspicion_relief": 2},
+		"icon": "res://assets/art/bg_district_palacio.png",
+		"desc": "+14% a Artes/Corte/Anfiteatro y reduce 2 la Sospecha de Corte por bimestre."
+	},
+	{
+		"id": "acc_astrolabe_locket", "name": "Guardapelo del Astrolabio", "slot": "accessory", "shop": "palacio",
+		"price": 880, "min_age": 15,
+		"mods": {"study_pct": 12, "combat_shield": 14, "income_pct": 10},
+		"icon": "res://assets/ui/relic_melted_hourglass.png",
+		"desc": "+12% en Clases, +10% en Empleos y +14 de Escudo inicial en combate."
+	},
+	{
+		"id": "acc_crown_signet", "name": "Sello de la Primera Estrella", "slot": "accessory", "shop": "palacio",
+		"price": 1380, "min_age": 17,
+		"mods": {"atk_flat": 8, "court_pct": 15, "study_pct": 12, "suspicion_relief": 3, "combat_hp": 20},
+		"icon": "res://assets/ui/relic_goddess_tear.png",
+		"desc": "+8 Ataque, +20 PV, +15% Corte, +12% Clases y -3 Sospecha bimestral."
+	}
+]
+
+const CIVIC_INVESTMENTS: Array[Dictionary] = [
+	{
+		"id": "civic_orphanage_endowment", "name": "Patronazgo del Hospicio de la Aurora", "price": 480, "min_age": 13,
+		"rep_gain": 10, "susp_relief": 6, "dividend": 25, "bimester_susp_relief": 1, "stress_relief": 2, "study_bonus_pct": 0,
+		"icon": "res://assets/art/illus_sanatorium_garden.png",
+		"desc": "+10 Rep. Paterna y -6 Sospecha al firmar; luego +25 G, -2 Estrés y -1 Sospecha por bimestre."
+	},
+	{
+		"id": "civic_aqueduct_charter", "name": "Concesión de los Acueductos Altos", "price": 780, "min_age": 14,
+		"rep_gain": 12, "susp_relief": 5, "dividend": 55, "bimester_susp_relief": 1, "stress_relief": 0, "study_bonus_pct": 0,
+		"icon": "res://assets/art/bg_district_acueductos.png",
+		"desc": "+12 Rep. Paterna y renta bimestral fija de +55 G + -1 Sospecha en Corte."
+	},
+	{
+		"id": "civic_academy_chair", "name": "Cátedra Real de Astrometría", "price": 1150, "min_age": 15,
+		"rep_gain": 16, "susp_relief": 8, "dividend": 40, "bimester_susp_relief": 2, "stress_relief": 0, "study_bonus_pct": 8,
+		"icon": "res://assets/art/bg_district_torre.png",
+		"desc": "+16 Rep. Paterna, -8 Sospecha, +40 G bimestrales, -2 Sospecha/bimestre y +8% en Clases."
+	},
+	{
+		"id": "civic_senate_seat", "name": "Escaño en el Consejo de Pares", "price": 1650, "min_age": 16,
+		"rep_gain": 22, "susp_relief": 12, "dividend": 85, "bimester_susp_relief": 3, "stress_relief": 0, "study_bonus_pct": 0,
+		"icon": "res://assets/art/bg_district_palacio.png",
+		"desc": "+22 Rep. Paterna, -12 Sospecha, +85 G bimestrales y -3 Sospecha/bimestre contra edictos."
+	},
+	{
+		"id": "civic_obsidian_sanctuary", "name": "Fondo del Bastión del Solsticio", "price": 2200, "min_age": 18,
+		"rep_gain": 26, "susp_relief": 15, "dividend": 110, "bimester_susp_relief": 4, "stress_relief": 3, "study_bonus_pct": 0,
+		"icon": "res://assets/art/bg_coliseum_festival.png",
+		"desc": "+26 Rep. Paterna, -15 Sospecha, +110 G, -4 Sospecha y -3 Estrés cada bimestre."
+	}
+]
+
+static func _find_in_catalog(arr: Array[Dictionary], item_id: String) -> Dictionary:
+	for row in arr:
+		if str(row.get("id", "")) == item_id:
+			return row
+	return {}
+
+static func get_consumable(item_id: String) -> Dictionary:
+	return _find_in_catalog(COMBAT_CONSUMABLES, item_id)
+
+static func get_tome(tome_id: String) -> Dictionary:
+	return _find_in_catalog(STUDY_TOMES, tome_id)
+
+static func get_equipment(equip_id: String) -> Dictionary:
+	return _find_in_catalog(EQUIPMENT, equip_id)
+
+static func get_civic_investment(inv_id: String) -> Dictionary:
+	return _find_in_catalog(CIVIC_INVESTMENTS, inv_id)

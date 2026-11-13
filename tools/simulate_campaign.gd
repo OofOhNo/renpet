@@ -139,9 +139,24 @@ func test_save_roundtrip() -> void:
 	TurnExecutor.astrolabe_tuned_this_bimester = true
 	check(bool(RelationshipManager.meet_candidate("soren").get("ok", false)), "conocer a Soren debe consumir 1 PS")
 	check(bool(RelationshipManager.interact_with_candidate("soren", "chat").get("ok", false)), "conversar tras conocer a Soren")
+	GameState.gold = 9000
+	check(bool(GameState.buy_consumable("tonic_crimson").get("ok", false)), "comprar consumible roundtrip")
+	check(bool(GameState.buy_tome("tome_celestial_trig").get("ok", false)), "comprar tratado roundtrip")
+	check(bool(GameState.buy_equipment("wpn_ashwood_spear").get("ok", false)), "comprar arma roundtrip")
+	check(bool(GameState.buy_equipment("acc_silver_compass").get("ok", false)), "comprar accesorio roundtrip")
+	check(bool(GameState.invest_civic("civic_orphanage_endowment").get("ok", false)), "inversion civica roundtrip")
+	GameState.estate_levels["sanctum"] = 6
+	GameState.estate_levels["treasury"] = 7
+	GameState.recalculate_derived_stats()
 	var before: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"]) + JSON.stringify(SaveManager.build_payload()["plan"])
 	check(SaveManager.save_game(2), "no se pudo guardar en la ranura 2")
 	GameState.gold = 1
+	GameState.equipped_weapon = ""
+	GameState.equipped_accessory = ""
+	GameState.owned_tomes.clear()
+	GameState.civic_investments.clear()
+	GameState.consumables_inventory.clear()
+	GameState.estate_levels["sanctum"] = 1
 	TurnExecutor.astrolabe_tuned_this_bimester = false
 	RelationshipManager.state["soren"]["affection"] = -99
 	RelationshipManager.state["soren"]["known"] = false
@@ -150,6 +165,8 @@ func test_save_roundtrip() -> void:
 	check(res.get("ok", false), "no se pudo cargar: %s" % res.get("msg", ""))
 	var after: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"]) + JSON.stringify(SaveManager.build_payload()["plan"])
 	check(before == after, "el estado cargado difiere del guardado")
+	check(GameState.equipped_weapon == "wpn_ashwood_spear" and GameState.equipped_accessory == "acc_silver_compass", "no se restauro equipo tras load")
+	check(int(GameState.estate_levels.get("sanctum", 1)) == 6 and int(GameState.estate_levels.get("treasury", 1)) == 7, "no se restauraron alas nv 6-7")
 	check(RelationshipManager.is_known("soren"), "no se restauró el descubrimiento de Soren")
 	check(RelationshipManager.social_points_left == 1, "no se restauraron los puntos sociales del bimestre")
 	check(TurnExecutor.astrolabe_tuned_this_bimester, "no se restauró la sintonía del astrolabio")
@@ -225,11 +242,35 @@ func test_catalog_integrity() -> void:
 			for k in t["stances"][att]["effects"].keys():
 				check(GameState.is_known_stat(k), "tópico %s/%s: atributo desconocido %s" % [t["id"], att, k])
 	var matrix_count: int = 0
+	var seen_summaries: Dictionary = {}
 	for bid in EndingEvaluator.BRANCH_ORDER:
 		check(EndingEvaluator.BRANCHES.has(bid), "falta rama %s" % bid)
 		for vid in EndingEvaluator.VOCATION_ORDER:
 			check(EndingEvaluator.VOCATIONS.has(vid), "falta vocación %s" % vid)
 			var m_res: Dictionary = EndingEvaluator.compose_matrix_ending(bid, vid)
+			var m_sum: String = str(m_res.get("summary", ""))
 			check(str(m_res.get("title", "")) != "", "falta título matriz %s/%s" % [bid, vid])
+			check(m_sum.length() >= 80, "prosa matriz demasiado corta %s/%s" % [bid, vid])
+			check(not m_sum.contains("{D}") and not m_sum.contains("{F}"), "placeholder sin sustituir %s/%s" % [bid, vid])
+			check(not seen_summaries.has(m_sum), "prosa duplicada en matriz %s/%s" % [bid, vid])
+			seen_summaries[m_sum] = true
 			matrix_count += 1
 	check(matrix_count == 65, "matriz debería tener 65 finales (5x13), tiene %d" % matrix_count)
+	check(seen_summaries.size() == 65, "los 65 finales deben tener prosa específica distinta (%d/65)" % seen_summaries.size())
+
+	# Validación epílogos Padre-Hija-Pareja y catálogos de sumideros de oro
+	for nid in RelationshipManager.NPC_ORDER:
+		for mode in ["romance", "tension", "friend"]:
+			for bid in EndingEvaluator.BRANCH_ORDER:
+				var epi: String = EndingEvaluator._compose_companion_epilogue(nid, mode, bid)
+				check(epi.length() >= 80 and epi.contains(GameState.father_name), "epílogo conjunto padre-hija-pareja completo %s/%s/%s" % [nid, mode, bid])
+	for item in CatalogDB.COMBAT_CONSUMABLES:
+		check(int(item.get("price", 0)) > 0 and ResourceLoader.exists(str(item.get("icon", ""))), "consumible %s válido" % str(item.get("id", "")))
+	for tome in CatalogDB.STUDY_TOMES:
+		check(int(tome.get("price", 0)) > 0 and ResourceLoader.exists(str(tome.get("icon", ""))), "tratado %s válido" % str(tome.get("id", "")))
+		for k in tome.get("stats", {}).keys():
+			check(GameState.is_known_stat(str(k)), "tratado %s usa atributo desconocido %s" % [str(tome.get("id", "")), str(k)])
+	for eq in CatalogDB.EQUIPMENT:
+		check(str(eq.get("slot", "")) in ["weapon", "accessory"] and int(eq.get("price", 0)) > 0, "equipo %s válido" % str(eq.get("id", "")))
+	for inv in CatalogDB.CIVIC_INVESTMENTS:
+		check(int(inv.get("price", 0)) >= 400 and ResourceLoader.exists(str(inv.get("icon", ""))), "patronazgo %s válido" % str(inv.get("id", "")))
