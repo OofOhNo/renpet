@@ -20,6 +20,8 @@ func show_report(report: Dictionary) -> void:
 			content.add_child(_block_card(b))
 
 		var syn: Array = report["synergies"]
+		if not syn.is_empty():
+			AstralAudio.play_triumph()
 		for s in syn:
 			var card := AstralTheme.panel("GlowPanel")
 			var v := AstralTheme.vbox(2)

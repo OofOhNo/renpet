@@ -20,6 +20,7 @@ func show_ending() -> void:
 	_eval = EndingEvaluator.evaluate_campaign()
 	_tap_res = ConstellationTapestry.record_campaign_completion(_eval)
 	_climax_note = ""
+	AstralAudio.play_twist()
 	_show_step_climax()
 	show_overlay()
 
@@ -160,6 +161,7 @@ func _show_step_testament() -> void:
 		content.add_child(b_next))
 
 func _show_step_tapestry() -> void:
+	AstralAudio.play_triumph()
 	set_panel_width(920)
 	rebuild(func() -> void:
 		content.add_child(AstralTheme.label("%s  EL TAPIZ DE LAS CONSTELACIONES (NEW GAME+)  %s" % [AstralTheme.G_STAR, AstralTheme.G_STAR], "HeadingLabel", AstralTheme.GOLD, true))

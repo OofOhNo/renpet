@@ -200,14 +200,17 @@ static func get_theme() -> Theme:
 	t.set_stylebox("normal", "PrimaryButton", box(Color(0.52, 0.38, 0.12, 0.98), GOLD_PALE, 2, 12, 12))
 	t.set_stylebox("hover", "PrimaryButton", box(Color(0.66, 0.49, 0.16, 1.0), Color.WHITE, 2, 12, 12))
 	t.set_stylebox("pressed", "PrimaryButton", box(Color(0.38, 0.27, 0.08, 1.0), GOLD_PALE, 2, 12, 12))
+	t.set_stylebox("disabled", "PrimaryButton", box(Color(0.22, 0.16, 0.06, 0.72), Color(GOLD_DARK, 0.45), 1, 12, 12))
 	t.set_color("font_color", "PrimaryButton", Color("fff6d6"))
 	t.set_color("font_hover_color", "PrimaryButton", Color.WHITE)
+	t.set_color("font_disabled_color", "PrimaryButton", Color(0.75, 0.68, 0.52, 0.75))
 	t.set_font("font", "PrimaryButton", _fonts["Heading"])
 	t.set_font_size("font_size", "PrimaryButton", 21)
 
 	t.set_type_variation("DangerButton", "Button")
 	t.set_stylebox("normal", "DangerButton", box(Color(0.25, 0.08, 0.12, 0.96), Color("b3485b"), 2, 10, 10))
 	t.set_stylebox("hover", "DangerButton", box(Color(0.36, 0.1, 0.16, 0.98), ROSE, 2, 10, 10))
+	t.set_stylebox("pressed", "DangerButton", box(Color(0.18, 0.05, 0.08, 0.98), ROSE, 2, 10, 10))
 
 	t.set_type_variation("NavButton", "Button")
 	t.set_stylebox("normal", "NavButton", box(Color(0.06, 0.09, 0.22, 0.9), Color(GOLD, 0.45), 1, 12, 8))
@@ -216,6 +219,7 @@ static func get_theme() -> Theme:
 
 	t.set_type_variation("TabLikeButton", "Button")
 	t.set_stylebox("normal", "TabLikeButton", box(Color(0.06, 0.08, 0.2, 0.9), Color(GOLD, 0.35), 1, 8, 8))
+	t.set_stylebox("hover", "TabLikeButton", box(Color(0.11, 0.16, 0.34, 0.96), GOLD, 1, 8, 8))
 	t.set_stylebox("pressed", "TabLikeButton", box(Color(0.2, 0.15, 0.06, 0.98), GOLD, 2, 8, 8))
 	t.set_color("font_pressed_color", "TabLikeButton", GOLD_PALE)
 

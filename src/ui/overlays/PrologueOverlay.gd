@@ -74,6 +74,7 @@ func _show_story_page() -> void:
 	_typing.tween_property(_text, "visible_ratio", 1.0, clampf(PAGES[_page].length() * 0.018, 1.5, 5.0))
 
 func _next_page() -> void:
+	AstralAudio.play_ui()
 	if _text != null and _text.visible_ratio < 1.0:
 		if _typing != null and _typing.is_valid():
 			_typing.kill()

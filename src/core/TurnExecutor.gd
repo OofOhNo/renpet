@@ -19,10 +19,12 @@ const COLLAPSE_STRESS_AFTER: int = 55
 
 var agenda: Array[String] = ["class_armory", "class_astrolabe", "rest_manor"]
 var father_plan: Array[String] = []
+var astrolabe_tuned_this_bimester: bool = false
 
 func reset_new_game() -> void:
 	agenda = ["class_armory", "class_astrolabe", "rest_manor"]
 	father_plan.clear()
+	astrolabe_tuned_this_bimester = false
 	plan_changed.emit()
 
 # ------------------------------------------------------------------------------
@@ -253,6 +255,7 @@ func resolve_bimester() -> Dictionary:
 		"%s completó los tres decanos del bimestre." % daughter, "turn", 1)
 	report["summary"] = _diff_snapshot(before, _snapshot())
 	report["new_turn"] = TimeManager.current_total_turn
+	astrolabe_tuned_this_bimester = false
 	SaveManager.autosave()
 	plan_changed.emit()
 	return report
@@ -433,7 +436,7 @@ func _diff_snapshot(a: Dictionary, b: Dictionary) -> Array:
 # GUARDADO
 # ------------------------------------------------------------------------------
 func serialize() -> Dictionary:
-	return {"agenda": agenda.duplicate(), "father_plan": father_plan.duplicate()}
+	return {"agenda": agenda.duplicate(), "father_plan": father_plan.duplicate(), "astrolabe_tuned": astrolabe_tuned_this_bimester}
 
 func deserialize(d: Dictionary) -> void:
 	agenda = ["class_armory", "class_astrolabe", "rest_manor"]
@@ -445,4 +448,5 @@ func deserialize(d: Dictionary) -> void:
 	for t in d.get("father_plan", []):
 		if not CatalogDB.get_father_task(str(t)).is_empty():
 			father_plan.append(str(t))
+	astrolabe_tuned_this_bimester = bool(d.get("astrolabe_tuned", false))
 	plan_changed.emit()

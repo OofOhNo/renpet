@@ -4,6 +4,7 @@ extends Node
 ## Botón "Entreabrir el Sello", Festival de las Constelaciones y Eventos de Historia (Fases 7 y 8).
 
 signal combat_updated()
+signal combat_fx(kind: String)
 signal combat_finished(victory: bool, summary: String)
 
 var explored_this_bimester: bool = false
@@ -227,11 +228,13 @@ func start_expedition(zone_idx: int, comp_id: String, comp_display_name: String)
 		return {"ok": false, "msg": "Región inválida."}
 	var z: Dictionary = ZONES[zone_idx]
 	if GameState.age < int(z["min_age"]):
-		return {"ok": false, "msg": "Renpet debe tener al menos %d años para adentrarse en %s." % [int(z["min_age"]), z["name"]]}
+		return {"ok": false, "msg": "%s debe tener al menos %d años para adentrarse en %s." % [GameState.daughter_name, int(z["min_age"]), z["name"]]}
 	if explored_this_bimester:
-		return {"ok": false, "msg": "Renpet ya realizó una expedición fuera de las murallas en este bimestre."}
+		return {"ok": false, "msg": "%s ya realizó una expedición fuera de las murallas en este bimestre." % GameState.daughter_name}
+	if not RelationshipManager.is_available(comp_id):
+		return {"ok": false, "msg": RelationshipManager.get_locked_reason(comp_id)}
 	if not can_recruit_companion(comp_id):
-		return {"ok": false, "msg": "%s siente demasiado rencor hacia Renpet como para acompañarla en batalla." % comp_display_name}
+		return {"ok": false, "msg": "%s siente demasiado rencor hacia %s como para acompañarla en batalla." % [comp_display_name, GameState.daughter_name]}
 
 	explored_this_bimester = true
 	current_zone = z
@@ -295,6 +298,7 @@ func play_combat_card(card_id: String) -> void:
 				base_d = int(round(base_d * 1.25 * companion_bond_bonus))
 			var final_d: int = int(round(base_d * dmg_mult))
 			var stag_d: int = 28 if companion_id == "vespera" else 18
+			combat_fx.emit("slash")
 			_apply_damage_to_enemy(final_d, stag_d, "⚔ Tajo de Horus")
 
 		"lotus_guard":
@@ -310,6 +314,7 @@ func play_combat_card(card_id: String) -> void:
 			var heal_v: int = 20 + int(GameState.luminiscencia * 0.12)
 			player_hp = mini(player_max_hp, player_hp + heal_v)
 			combat_log.append("[color=#80DEEA]❀ Égida de Loto: +%d Escudo Astral y +%d HP restaurado.[/color]" % [sh_gain, heal_v])
+			combat_fx.emit("shield")
 
 		"starlight_ray":
 			if player_ap < 2:
@@ -321,6 +326,7 @@ func play_combat_card(card_id: String) -> void:
 			if companion_id == "soren":
 				base_d = int(round(base_d * 1.25 * companion_bond_bonus))
 			var final_d: int = int(round(base_d * dmg_mult))
+			combat_fx.emit("magic")
 			_apply_damage_to_enemy(final_d, 32, "✦ Cometa de Sothis")
 
 		"chrono_flux":
@@ -332,6 +338,7 @@ func play_combat_card(card_id: String) -> void:
 			var base_d: int = 40 + int(GameState.resonancia * 0.45)
 			var final_d: int = int(round(base_d * dmg_mult))
 			player_shield += 25
+			combat_fx.emit("magic")
 			_apply_damage_to_enemy(final_d, 22, "⏳ Pulso de Relojería")
 
 		"companion_skill":
@@ -340,6 +347,7 @@ func play_combat_card(card_id: String) -> void:
 				combat_updated.emit()
 				return
 			player_ap -= 1
+			combat_fx.emit("magic")
 			_execute_companion_active_skill(dmg_mult * companion_bond_bonus)
 
 		"rewind":
@@ -353,6 +361,7 @@ func play_combat_card(card_id: String) -> void:
 			player_ap = mini(player_max_ap + 1, player_ap + 2)
 			player_shield += 40
 			combat_log.append("[color=#FFF176]☾ REBOBINADO TEMPORAL: El reloj gira hacia atrás (+%d HP, +40 Escudo, +2 PA).[/color]" % heal_r)
+			combat_fx.emit("shield")
 
 		"unseal":
 			# EL BOTÓN TENTADOR: LIBERAR LA RESONANCIA OCULTA / ENTREABRIR EL SELLO (0 PA)
@@ -362,8 +371,11 @@ func play_combat_card(card_id: String) -> void:
 			unsealed_this_combat = true
 			unseal_used_count += 1
 			var abyssal_dmg: int = 180 + int((GameState.gravedad + GameState.resonancia + GameState.abyssal_sync * 4) * 0.65)
+			if GameState.has_mutation("voz_del_prisionero"):
+				abyssal_dmg = int(round(abyssal_dmg * 1.20))
 			player_hp = mini(player_max_hp, player_hp + int(player_max_hp * 0.35))
 			player_ap += 2
+			combat_fx.emit("unseal")
 			if GameState.get_secret_tier() >= 2:
 				Chronicle.record_event("unseal_combat_%d" % unseal_used_count, "El Sello Entreabierto en Batalla", "Para derrotar a %s, %s liberó el fuego violeta de Nyx-Aethel (%d%% Sello)." % [enemy_name, GameState.daughter_name, seal_cost], "twist", 5)
 				combat_log.append("[color=#FF80AB][b]☥ ¡SELLO ENTREABIERTO! Fulgor de Nyx-Aethel (%d%% Sello, +7%% Sincronía, +2 PA)[/b][/color]" % seal_cost)
@@ -410,6 +422,7 @@ func _apply_damage_to_enemy(dmg: int, stagger_add: int, skill_label: String) -> 
 		if enemy_stagger >= enemy_max_stagger:
 			enemy_stagger = enemy_max_stagger
 			enemy_staggered = true
+			combat_fx.emit("stagger")
 			combat_log.append("[color=#FFF176]✦ ¡QUIEBRE DE GUARDIA! %s queda aturdido (Daño x1.5 y pierde su turno).[/color]" % enemy_name)
 	combat_log.append("%s inflige [b]%d[/b] de daño a %s." % [skill_label, dmg, enemy_name])
 
@@ -433,6 +446,7 @@ func end_player_turn() -> void:
 			player_shield -= blocked
 			var hp_loss: int = incoming - blocked
 			player_hp = maxi(0, player_hp - hp_loss)
+			combat_fx.emit("hit")
 			combat_log.append("[color=#FF8A80]%s ataca: %d daño (%d absorbido por Escudo).[/color]" % [enemy_name, hp_loss, blocked])
 
 	if GameState.has_mutation("pulso_cristalino") and player_hp > 0:
@@ -499,6 +513,7 @@ func _check_enemy_defeat_or_continue() -> void:
 		var win_summary: String = "¡Victoria en %s! Derrotaste a %s junto a %s.\nRecompensas: +%d Oro, +16 Temple, +16 Resonancia y +1 %s para el Crisol Astral." % [
 			current_zone["name"], enemy_name, companion_name, gold_won, mat_name
 		]
+		combat_fx.emit("victory")
 		combat_finished.emit(true, win_summary)
 
 # ==============================================================================

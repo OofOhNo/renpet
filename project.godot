@@ -30,6 +30,7 @@ TurnExecutor="*res://src/core/TurnExecutor.gd"
 SaveManager="*res://src/core/SaveManager.gd"
 EndingEvaluator="*res://src/core/EndingEvaluator.gd"
 ConstellationTapestry="*res://src/core/ConstellationTapestry.gd"
+AstralAudio="*res://src/core/AstralAudio.gd"
 
 [display]
 

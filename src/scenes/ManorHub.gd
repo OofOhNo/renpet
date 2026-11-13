@@ -14,6 +14,121 @@ const NAV_ITEMS: Array[Dictionary] = [
 	{"id": "explore", "title": "VI. Expedición y Festival", "sub": "Regiones, combate y certámenes", "icon": "res://assets/ui/nav_expedition.png", "key": KEY_6}
 ]
 
+# --- Efectos visuales interactivos del escenario ---
+class _StageFX extends Control:
+	const COL_GOLD := Color(0.95, 0.80, 0.42, 1.0)
+	const COL_TURQ := Color(0.35, 0.84, 0.80, 1.0)
+	var motes_enabled: bool = true
+	var prefer_calm_motes: bool = false
+	var _dust: Array[Dictionary] = []
+	var _motes: Array[Dictionary] = []
+	var _bursts: Array[Dictionary] = []
+	var _spawn_timer: float = 1.8
+	var _rng := RandomNumberGenerator.new()
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_rng.randomize()
+		for i in range(22):
+			_dust.append({
+				"x": _rng.randf(),
+				"y": _rng.randf(),
+				"spd": _rng.randf_range(0.015, 0.042),
+				"sz": _rng.randf_range(1.2, 2.8),
+				"phase": _rng.randf() * TAU,
+				"gold": (i % 3) != 0
+			})
+
+	func _process(delta: float) -> void:
+		if not is_visible_in_tree():
+			return
+		for d in _dust:
+			d["y"] = float(d["y"]) - float(d["spd"]) * delta
+			d["phase"] = float(d["phase"]) + delta * 1.8
+			if float(d["y"]) < 0.0:
+				d["y"] = 1.0
+				d["x"] = _rng.randf()
+		for i in range(_bursts.size() - 1, -1, -1):
+			var b: Dictionary = _bursts[i]
+			b["life"] = float(b["life"]) - delta
+			if float(b["life"]) <= 0.0:
+				_bursts.remove_at(i)
+			else:
+				b["pos"] = (b["pos"] as Vector2) + (b["vel"] as Vector2) * delta
+				b["vel"] = (b["vel"] as Vector2) * 0.92
+		if motes_enabled and size.x > 120.0 and size.y > 180.0:
+			for i in range(_motes.size() - 1, -1, -1):
+				var m: Dictionary = _motes[i]
+				m["phase"] = float(m["phase"]) + delta * 2.8
+				m["life"] = float(m["life"]) - delta
+				if float(m["life"]) <= 0.0:
+					_motes.remove_at(i)
+			_spawn_timer -= delta
+			if _spawn_timer <= 0.0 and _motes.size() < 2:
+				_spawn_timer = _rng.randf_range(4.5, 8.0)
+				var left_side: bool = (_rng.randi() % 2) == 0
+				var px: float = _rng.randf_range(38.0, size.x * 0.28) if left_side else _rng.randf_range(size.x * 0.72, size.x - 38.0)
+				var py: float = _rng.randf_range(76.0, size.y - 120.0)
+				_motes.append({
+					"pos": Vector2(px, py),
+					"kind": "calm" if prefer_calm_motes and (_rng.randi() % 2) == 0 else "gold",
+					"phase": _rng.randf() * TAU,
+					"life": 14.0
+				})
+		queue_redraw()
+
+	func try_collect_mote(click_pos: Vector2) -> Dictionary:
+		for i in range(_motes.size()):
+			var m: Dictionary = _motes[i]
+			var bob: Vector2 = (m["pos"] as Vector2) + Vector2(0.0, sin(float(m["phase"])) * 7.0)
+			if click_pos.distance_to(bob) <= 30.0:
+				var kind: String = str(m["kind"])
+				_motes.remove_at(i)
+				var col: Color = COL_TURQ if kind == "calm" else COL_GOLD
+				spawn_burst(bob, col, 16)
+				return {"hit": true, "pos": bob, "kind": kind, "color": col}
+		return {"hit": false}
+
+	func spawn_burst(pos: Vector2, col: Color, count: int) -> void:
+		if DisplayServer.get_name() == "headless":
+			return
+		for i in range(count):
+			var a: float = _rng.randf() * TAU
+			var spd: float = _rng.randf_range(38.0, 145.0)
+			_bursts.append({
+				"pos": pos,
+				"vel": Vector2.from_angle(a) * spd,
+				"life": _rng.randf_range(0.35, 0.78),
+				"max": 0.78,
+				"col": col,
+				"sz": _rng.randf_range(2.2, 4.6)
+			})
+
+	func _draw() -> void:
+		if size.x <= 4.0 or size.y <= 4.0:
+			return
+		for d in _dust:
+			var px: float = float(d["x"]) * size.x + sin(float(d["phase"])) * 10.0
+			var py: float = float(d["y"]) * size.y
+			var a: float = 0.22 + 0.18 * sin(float(d["phase"]) * 1.3)
+			var c: Color = Color(0.95, 0.82, 0.44, a) if bool(d["gold"]) else Color(0.38, 0.86, 0.82, a)
+			draw_circle(Vector2(px, py), float(d["sz"]), c)
+		for m in _motes:
+			var pos: Vector2 = (m["pos"] as Vector2) + Vector2(0.0, sin(float(m["phase"])) * 7.0)
+			var is_calm: bool = str(m["kind"]) == "calm"
+			var col: Color = COL_TURQ if is_calm else COL_GOLD
+			var r_p: float = 12.0 + sin(float(m["phase"]) * 2.0) * 3.5
+			draw_circle(pos, r_p + 5.0, Color(col.r, col.g, col.b, 0.18))
+			draw_arc(pos, r_p, 0.0, TAU, 24, Color(col.r, col.g, col.b, 0.72), 1.6, true)
+			draw_line(pos + Vector2(-11.0, 0.0), pos + Vector2(11.0, 0.0), Color(1.0, 0.98, 0.86, 0.9), 2.0, true)
+			draw_line(pos + Vector2(0.0, -11.0), pos + Vector2(0.0, 11.0), Color(1.0, 0.98, 0.86, 0.9), 2.0, true)
+			draw_circle(pos, 4.5, Color(1.0, 0.98, 0.92, 1.0))
+		for b in _bursts:
+			var ratio: float = clampf(float(b["life"]) / float(b["max"]), 0.0, 1.0)
+			var bc: Color = b["col"]
+			draw_circle(b["pos"], float(b["sz"]) * ratio, Color(bc.r, bc.g, bc.b, ratio))
+
 # --- Nodos de interfaz ---
 var _ui_root: Control
 var _lbl_date: Label
@@ -29,6 +144,9 @@ var _lbl_seal_heading: Label
 var _lbl_seal_title: Label
 var _dock_medallion: TextureRect
 var _nav_buttons: Dictionary = {}
+var _status_nav_title: Label
+var _btn_talk: Button
+var _audio_btn: Button
 var _center: Control
 var _windows: Dictionary = {}
 var _current_window: String = ""
@@ -38,6 +156,8 @@ var _ring_inner: TextureRect
 var _portrait: TextureRect
 var _nameplate: Label
 var _portrait_base_y: float = 0.0
+var _stage_fx: _StageFX
+var _ritual_btn: Button
 var _lbl_speaker: Label
 var _lbl_dialogue: RichTextLabel
 var _dlg_medallion: TextureRect
@@ -45,6 +165,7 @@ var _typing: Tween
 var _toast_box: VBoxContainer
 var _show_ui_btn: Button
 var _anim_time: float = 0.0
+var _stage_tip_idx: int = 0
 
 # --- Overlays ---
 var _prologue: PrologueOverlay
@@ -55,6 +176,8 @@ var _combat: CombatOverlay
 var _story: StoryEventOverlay
 var _menu: MenuOverlay
 var _ending: EndingOverlay
+var _exec: ExecutionOverlay
+var _ritual: AstrolabeRitualOverlay
 
 var _refresh_queued: bool = false
 var _busy: bool = false   # evita doble ejecución del turno
@@ -76,9 +199,14 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_anim_time += delta
 	if _ring_outer != null:
-		_ring_outer.rotation = _anim_time * 0.14
-		_ring_inner.rotation = -_anim_time * 0.25
+		var spd: float = 0.24 if GameState.seal_integrity < 45 else 0.14
+		_ring_outer.rotation = _anim_time * spd
+		_ring_inner.rotation = -_anim_time * (spd * 1.75)
 		_portrait.position.y = _portrait_base_y + sin(_anim_time * 1.8) * 5.0
+		_portrait.scale = _portrait.scale.lerp(Vector2.ONE, minf(1.0, delta * 9.0))
+	if _stage_fx != null:
+		_stage_fx.motes_enabled = (_current_window == "" and not _any_overlay_visible() and _ui_root.visible)
+		_stage_fx.prefer_calm_motes = GameState.stress >= 20
 
 # ------------------------------------------------------------------------------
 # INICIO DE SESIÓN: nueva partida o carga desde el título
@@ -204,11 +332,23 @@ func _build_top_bar() -> Control:
 	_pill_energy = _make_pill(h, AstralTheme.TURQ, "Energía Paternal: puntos libres este bimestre para las tareas del Padre")
 	_pill_stress = _make_pill(h, AstralTheme.BAD, str(AstralTheme.STAT_TOOLTIPS["stress"]))
 	_pill_affection = _make_pill(h, AstralTheme.ROSE, str(AstralTheme.STAT_TOOLTIPS["affection"]))
+	_audio_btn = AstralTheme.button(AstralTheme.G_STAR2 + "  Audio: ON", "", "Activar o silenciar los sonidos del observatorio")
+	_audio_btn.custom_minimum_size = Vector2(138, 46)
+	_audio_btn.pressed.connect(func() -> void: AstralAudio.toggle_mute())
+	AstralAudio.mute_changed.connect(_sync_audio_btn)
+	_sync_audio_btn(AstralAudio.muted)
+	h.add_child(_audio_btn)
 	var menu_btn := AstralTheme.button(AstralTheme.G_ORNAMENT + "  Menú", "", "Menú del observatorio (Esc)")
 	menu_btn.custom_minimum_size = Vector2(120, 46)
-	menu_btn.pressed.connect(func() -> void: _menu.open_pause(GameState.prologue_completed))
+	menu_btn.pressed.connect(func() -> void:
+		AstralAudio.play_ui()
+		_menu.open_pause(GameState.prologue_completed))
 	h.add_child(menu_btn)
 	return bar
+
+func _sync_audio_btn(is_muted: bool) -> void:
+	if _audio_btn != null:
+		_audio_btn.text = "%s  Audio: OFF" % AstralTheme.G_CROSS if is_muted else "%s  Audio: ON" % AstralTheme.G_STAR2
 
 func _make_pill(parent: Control, color: Color, tip: String) -> Label:
 	var p := PanelContainer.new()
@@ -287,6 +427,8 @@ func _build_dock() -> Control:
 		t1.add_theme_font_override("font", AstralTheme.font("Bold"))
 		t1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.add_child(t1)
+		if item["id"] == "status":
+			_status_nav_title = t1
 		var t2 := AstralTheme.label(str(item["sub"]), "CaptionLabel", AstralTheme.MUTED)
 		t2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		t2.clip_text = true
@@ -325,7 +467,10 @@ func _build_windows() -> void:
 func _build_stage() -> Control:
 	var s := Control.new()
 	s.custom_minimum_size.x = 560
-	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	s.mouse_filter = Control.MOUSE_FILTER_STOP
+	s.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	s.tooltip_text = "Haz clic para hablar con tu hija o atrapa chispas brillantes del cielo (+8 G / -2 Estrés)"
+	s.gui_input.connect(_on_stage_input)
 
 	_ring_outer = _stage_tex("res://assets/ui/astrolabe_ring_outer.png", Color(1.0, 0.95, 0.8, 0.85))
 	_ring_inner = _stage_tex("res://assets/ui/astrolabe_ring_inner.png", Color(0.75, 0.95, 1.0, 0.9))
@@ -333,6 +478,22 @@ func _build_stage() -> Control:
 	s.add_child(_ring_outer)
 	s.add_child(_ring_inner)
 	s.add_child(_portrait)
+
+	_stage_fx = _StageFX.new()
+	s.add_child(_stage_fx)
+
+	_ritual_btn = AstralTheme.button("%s  Sintonizar Astrolabio" % AstralTheme.G_ANKH, "TabLikeButton",
+		"Minijuego visual (1 vez por bimestre): alinea las 3 órbitas con el cenit para ganar Luminiscencia, Resonancia y reducir Estrés.")
+	_ritual_btn.anchor_left = 0.5
+	_ritual_btn.anchor_right = 0.5
+	_ritual_btn.anchor_top = 0.0
+	_ritual_btn.anchor_bottom = 0.0
+	_ritual_btn.offset_left = -138
+	_ritual_btn.offset_right = 138
+	_ritual_btn.offset_top = 4
+	_ritual_btn.offset_bottom = 42
+	_ritual_btn.pressed.connect(_open_ritual)
+	s.add_child(_ritual_btn)
 
 	var plate := PanelContainer.new()
 	plate.theme_type_variation = "PillPanel"
@@ -344,12 +505,87 @@ func _build_stage() -> Control:
 	plate.offset_right = -20
 	plate.offset_top = -64
 	plate.offset_bottom = 0
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_nameplate = AstralTheme.label("", "", AstralTheme.GOLD_PALE, true)
 	_nameplate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_nameplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_child(_nameplate)
 	s.add_child(plate)
 	s.resized.connect(_layout_stage)
 	return s
+
+func _on_stage_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _current_window != "" or _any_overlay_visible():
+			return
+		var me: InputEventMouseButton = event
+		if _stage_fx != null:
+			var mote_hit: Dictionary = _stage_fx.try_collect_mote(me.position)
+			if bool(mote_hit.get("hit", false)):
+				if str(mote_hit.get("kind", "gold")) == "calm":
+					var d_s: int = GameState.modify_stat("stress", -2)
+					_spawn_stage_float(me.position, "%s Estrés %s" % [AstralTheme.G_STAR2, AstralTheme.signed(d_s if d_s != 0 else -2)], AstralTheme.TURQ)
+					toast("Chispa serena capturada: Estrés %s" % AstralTheme.signed(d_s if d_s != 0 else -2), "good")
+				else:
+					GameState.modify_gold(8)
+					_spawn_stage_float(me.position, "%s +8 Oro" % AstralTheme.G_SUN, AstralTheme.GOLD)
+					toast("Chispa áurea capturada: +8 Oro", "good")
+				AstralAudio.play_confirm()
+				_refresh_all()
+				return
+		_portrait.scale = Vector2(1.045, 1.045)
+		if _stage_fx != null:
+			_stage_fx.spawn_burst(me.position, AstralTheme.GOLD_PALE, 10)
+			_spawn_stage_float(me.position, AstralTheme.G_HEART if GameState.affection >= 70 else AstralTheme.G_STAR2, AstralTheme.GOLD_PALE)
+		AstralAudio.play_ui()
+		_say_stage_reaction()
+
+func _spawn_stage_float(pos: Vector2, txt: String, col: Color) -> void:
+	if _stage_fx == null or DisplayServer.get_name() == "headless":
+		return
+	var l := AstralTheme.label(txt, "SubLabel", col)
+	l.add_theme_font_size_override("font_size", 20)
+	l.add_theme_color_override("font_outline_color", Color(0.02, 0.03, 0.1, 0.95))
+	l.add_theme_constant_override("outline_size", 5)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.position = pos + Vector2(-46.0, -18.0)
+	_stage_fx.add_child(l)
+	var tw := l.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(l, "position:y", l.position.y - 42.0, 0.85).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.85).set_delay(0.18)
+	tw.chain().tween_callback(l.queue_free)
+
+func _open_ritual() -> void:
+	if _busy or _any_overlay_visible() or TurnExecutor.astrolabe_tuned_this_bimester:
+		return
+	_close_windows()
+	_ritual.open_ritual()
+
+func _on_ritual_completed(summary: String, kind: String) -> void:
+	toast(summary, kind)
+	say("%s — Astrolabio Celeste" % GameState.daughter_name, "\"¡Siento los anillos del observatorio resonar en armonía, Padre! (%s)\"" % summary)
+	_refresh_all()
+
+func _say_stage_reaction() -> void:
+	var pool: Array[String] = []
+	if GameState.stress >= 75:
+		pool.append("\"Me duele un poco la cabeza de tanto estudiar, Padre... ¿podemos descansar un decano pronto?\"")
+	if TimeManager.is_festival_bimester():
+		pool.append("\"¡Las banderas del Festival de Otoño ya ondean en el Coliseo! Si te animas, entremos en (VI. Expedición y Festival).\"")
+	if GameState.affection >= 75:
+		pool.append("\"Cuando giro la cabeza y te veo en el observatorio, cualquier tormenta del cielo parece más fácil.\"")
+	if not GameState.active_traits.is_empty():
+		pool.append("\"Siento que últimamente me dicen mucho «%s»... Supongo que los astros notan en qué me convierto.\"" % GameState.active_traits[0])
+	if GameState.get_secret_tier() >= 2:
+		pool.append("\"Ya no le temo al reloj que late en mi pecho, Padre. Sea cual sea el Solsticio, caminaremos juntos.\"")
+	elif GameState.get_secret_tier() == 1:
+		pool.append("\"A veces veo jeroglíficos dorados en el rabillo del ojo cuando miro las estrellas... ¿tú también los sientes?\"")
+	var voc: Dictionary = EndingEvaluator.get_projected_vocation()
+	pool.append("\"Con todo lo que estoy aprendiendo, me imagino algún día sirviendo como %s.\"" % str(voc.get("name", "Hija de la Estrella")))
+	pool.append(GameState.get_dynamic_manor_greeting())
+	_stage_tip_idx = (_stage_tip_idx + 1) % pool.size()
+	say("%s — Mansión Solar" % GameState.daughter_name, pool[_stage_tip_idx])
 
 func _stage_tex(path: String, tint: Color) -> TextureRect:
 	var t := TextureRect.new()
@@ -370,6 +606,7 @@ func _layout_stage() -> void:
 		pw = sz.x - 20.0
 		ph = pw * 600.0 / 460.0
 	_portrait.size = Vector2(pw, ph)
+	_portrait.pivot_offset = _portrait.size * 0.5
 	_portrait.position = Vector2((sz.x - pw) * 0.5, sz.y - 78.0 - ph)
 	_portrait_base_y = _portrait.position.y
 	var center: Vector2 = Vector2(sz.x * 0.5, _portrait.position.y + ph * 0.40)
@@ -409,9 +646,9 @@ func _build_dialogue_bar() -> Control:
 	var side := AstralTheme.vbox(8)
 	side.custom_minimum_size.x = 250
 	h.add_child(side)
-	var b1 := AstralTheme.button(AstralTheme.G_FLOWER + "  Conversar con Renpet", "", "Abre la Chimenea y Hogar")
-	b1.pressed.connect(func() -> void: _open_window("hearth"))
-	side.add_child(b1)
+	_btn_talk = AstralTheme.button(AstralTheme.G_FLOWER + "  Conversar con %s" % GameState.daughter_name, "", "Abre la Chimenea y Hogar")
+	_btn_talk.pressed.connect(func() -> void: _open_window("hearth"))
+	side.add_child(_btn_talk)
 	var b2 := AstralTheme.button(AstralTheme.G_STAR + "  Abrir agenda del bimestre", "PrimaryButton")
 	b2.pressed.connect(func() -> void: _open_window("schedule"))
 	side.add_child(b2)
@@ -426,9 +663,12 @@ func _build_overlays() -> void:
 	_story = StoryEventOverlay.new()
 	_menu = MenuOverlay.new()
 	_ending = EndingOverlay.new()
-	for o in [_report, _letter, _bond, _combat, _story, _menu, _ending, _prologue]:
+	_exec = ExecutionOverlay.new()
+	_ritual = AstrolabeRitualOverlay.new()
+	for o in [_exec, _report, _letter, _bond, _combat, _story, _ritual, _menu, _ending, _prologue]:
 		add_child(o)
 	_prologue.finished.connect(_on_prologue_finished)
+	_ritual.ritual_completed.connect(_on_ritual_completed)
 	_bond.resolved.connect(func(_npc: String) -> void:
 		toast("Escena completada", "good")
 		SaveManager.autosave()
@@ -466,12 +706,15 @@ func _toggle_window(id: String) -> void:
 func _open_window(id: String) -> void:
 	if not _windows.has(id):
 		return
+	AstralAudio.play_ui()
 	if _current_window != "" and _current_window != id:
 		var prev: BaseWindow = _windows[_current_window]
 		prev.visible = false
 	_current_window = id
 	for k in _nav_buttons.keys():
 		(_nav_buttons[k] as Button).set_pressed_no_signal(k == id)
+	if _stage_fx != null:
+		_stage_fx.motes_enabled = false
 	(_windows[id] as BaseWindow).open()
 
 func _on_window_closed(id: String) -> void:
@@ -479,6 +722,8 @@ func _on_window_closed(id: String) -> void:
 		_current_window = ""
 	if _nav_buttons.has(id):
 		(_nav_buttons[id] as Button).set_pressed_no_signal(false)
+	if _stage_fx != null:
+		_stage_fx.motes_enabled = (_current_window == "" and not _any_overlay_visible())
 
 func _close_windows() -> void:
 	for id in _windows.keys():
@@ -488,7 +733,7 @@ func _close_windows() -> void:
 	_current_window = ""
 
 func _any_overlay_visible() -> bool:
-	for o in [_prologue, _report, _letter, _bond, _combat, _story, _menu, _ending]:
+	for o in [_prologue, _exec, _report, _letter, _bond, _combat, _story, _ritual, _menu, _ending]:
 		if (o as Control).visible:
 			return true
 	return false
@@ -508,6 +753,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		if k.keycode == KEY_ESCAPE:
 			if _ending != null and _ending._tapestry != null and _ending._tapestry.visible:
 				_ending._tapestry.hide_overlay()
+				get_viewport().set_input_as_handled()
+			elif _exec != null and _exec.visible:
+				_exec._finish_sequence()
+				get_viewport().set_input_as_handled()
+			elif _ritual != null and _ritual.visible:
+				_ritual.hide_overlay()
 				get_viewport().set_input_as_handled()
 			elif _menu.visible or _letter.visible:
 				(_menu if _menu.visible else _letter).hide_overlay()
@@ -544,6 +795,11 @@ func _execute_turn() -> void:
 		return
 	_close_windows()
 	_refresh_all()
+	if DisplayServer.get_name() != "headless":
+		_exec.play_bimester(rep)
+		await _exec.sequence_finished
+	else:
+		AstralAudio.play_turn_end()
 	_report.show_report(rep)
 	await _report.closed
 	var letter: Dictionary = rep.get("year_end", {})
@@ -562,6 +818,7 @@ func _execute_turn() -> void:
 		return
 	say("%s — Mansión Solar" % GameState.daughter_name, GameState.get_dynamic_manor_greeting())
 	if TimeManager.is_festival_bimester():
+		AstralAudio.play_confirm()
 		toast("✦ ¡Festival de Otoño abierto! Compite en (VI. Expedición y Festival)", "good")
 	else:
 		toast("Autoguardado — %s" % TimeManager.get_bimester_info()["name"], "good")
@@ -571,9 +828,11 @@ func _on_expedition_ended(victory: bool, _summary: String) -> void:
 	SaveManager.autosave()
 	_refresh_all()
 	if victory:
+		AstralAudio.play_triumph()
 		toast("Expedición completada con éxito", "good")
 		say(GameState.daughter_name, "\"¡Volvimos sanos y salvos al observatorio, Padre! Traemos reliquias y nuevos recuerdos del cielo.\"")
 	else:
+		AstralAudio.play_warn()
 		toast("Retirada de la expedición", "warn")
 		var seal_word: String = "el Sello" if GameState.get_secret_tier() >= 1 else "mi estrella"
 		say(GameState.daughter_name, "\"Tuvimos que retroceder antes de que %s sufriera más... Descansaré un poco.\"" % seal_word)
@@ -582,8 +841,10 @@ func _on_festival_completed(res: Dictionary) -> void:
 	SaveManager.autosave()
 	_refresh_all()
 	if bool(res.get("won", false)):
+		AstralAudio.play_triumph()
 		say(GameState.daughter_name, "\"¡Lo logramos, Padre! ¡Toda la capital coreó nuestro nombre en el Coliseo de las Constelaciones!\"")
 	else:
+		AstralAudio.play_confirm()
 		say(GameState.daughter_name, "\"El rival estuvo muy fuerte esta vez, Padre, pero aprendí muchísimo en el escenario imperial.\"")
 
 func _load_slot(slot: int) -> void:
@@ -634,8 +895,36 @@ func _do_refresh() -> void:
 	_dock_medallion.texture = load(med_path)
 	_dlg_medallion.texture = _dock_medallion.texture
 	_lbl_seal_title.text = GameState.get_metaphysical_state_title()
-	_nameplate.text = "%s — %s" % [GameState.daughter_name, GameState.get_metaphysical_state_title().get_slice(":", 0)]
+	if _status_nav_title != null:
+		_status_nav_title.text = "II. Ficha de %s" % GameState.daughter_name
+	if _btn_talk != null:
+		_btn_talk.text = "%s  Conversar con %s" % [AstralTheme.G_FLOWER, GameState.daughter_name]
+	if _ritual_btn != null:
+		var tuned: bool = TurnExecutor.astrolabe_tuned_this_bimester
+		_ritual_btn.disabled = tuned
+		_ritual_btn.text = "%s  Astrolabio Sintonizado" % AstralTheme.G_CHECK if tuned else "%s  Sintonizar Astrolabio" % AstralTheme.G_ANKH
+	if _stage_fx != null:
+		_stage_fx.motes_enabled = (_current_window == "" and not _any_overlay_visible())
+	var voc_proj: Dictionary = EndingEvaluator.get_projected_vocation()
+	_nameplate.text = "%s — %s  %s  %s" % [
+		GameState.daughter_name,
+		GameState.get_metaphysical_state_title().get_slice(":", 0),
+		AstralTheme.G_STAR2,
+		str(voc_proj.get("name", ""))
+	]
 	_portrait.modulate = Color(0.92, 0.86, 1.0) if GameState.abyssal_sync >= 50 else Color.WHITE
+	if GameState.seal_integrity < 45 or GameState.entropia >= 70:
+		_ring_outer.modulate = Color(1.0, 0.58, 0.78, 0.90)
+		_ring_inner.modulate = Color(0.92, 0.56, 1.0, 0.94)
+	elif GameState.abyssal_sync >= 55:
+		_ring_outer.modulate = Color(0.86, 0.78, 1.0, 0.90)
+		_ring_inner.modulate = Color(0.65, 0.92, 1.0, 0.92)
+	elif GameState.human_anchor >= 75:
+		_ring_outer.modulate = Color(1.0, 0.94, 0.72, 0.92)
+		_ring_inner.modulate = Color(0.95, 0.98, 0.82, 0.92)
+	else:
+		_ring_outer.modulate = Color(1.0, 0.95, 0.8, 0.85)
+		_ring_inner.modulate = Color(0.75, 0.95, 1.0, 0.9)
 	if _current_window != "" and (_windows[_current_window] as BaseWindow).visible:
 		(_windows[_current_window] as BaseWindow).refresh()
 

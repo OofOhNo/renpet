@@ -47,11 +47,24 @@ func build() -> void:
 	_exec_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	exec_col.add_child(_exec_msg)
 
-	var agenda_tab := add_tab(_tabs, "  Agenda de Renpet  ")
+	var agenda_tab := add_tab(_tabs, "  Agenda de %s  " % GameState.daughter_name)
 	_bim_info = AstralTheme.rich()
 	var info_card := AstralTheme.panel("GlowPanel")
 	info_card.add_child(_bim_info)
 	agenda_tab.add_child(info_card)
+
+	var preset_row := AstralTheme.hbox(8)
+	var p_lbl := AstralTheme.label("%s  Plantillas rápidas:" % AstralTheme.G_STAR2, "CaptionLabel", AstralTheme.TURQ)
+	preset_row.add_child(p_lbl)
+	for pid in ["equilibrio", "sabia", "marcial", "corte", "oro_descanso"]:
+		var ptitle: String = {"equilibrio": "Equilibrio", "sabia": "Sabia Astral", "marcial": "Marcial", "corte": "Corte y Arte", "oro_descanso": "Oro + Descanso"}[pid]
+		var pb := AstralTheme.button(ptitle, "TabLikeButton", "Rellena los 3 decanos automáticamente según esta orientación")
+		pb.toggle_mode = false
+		pb.custom_minimum_size = Vector2(0, 34)
+		var p_key: String = pid
+		pb.pressed.connect(func() -> void: _apply_preset(p_key))
+		preset_row.add_child(pb)
+	agenda_tab.add_child(preset_row)
 
 	for i in range(TurnExecutor.BLOCKS_PER_BIMESTER):
 		var card := AstralTheme.panel("CardPanel")
@@ -131,15 +144,37 @@ func _option_text(a: Dictionary) -> String:
 		txt += "   · desde los %d" % int(a["min_age"])
 	return txt
 
+func _apply_preset(preset_id: String) -> void:
+	var job_mid: String = "job_clockwork" if GameState.age >= 13 else "job_sanatorium"
+	var job_phys: String = "job_caravan" if GameState.age >= 13 else "job_sanatorium"
+	var slots: Array[String] = ["class_astrolabe", "job_sanatorium", "rest_manor"]
+	match preset_id:
+		"sabia":
+			slots = ["class_astrolabe", "class_sanctuary", job_mid]
+		"marcial":
+			slots = ["class_armory", job_phys, "rest_manor"]
+		"corte":
+			slots = ["class_conservatory", "job_amphitheater", "rest_manor"]
+		"oro_descanso":
+			slots = ["job_sanatorium", "job_amphitheater", "rest_manor"]
+	for i in range(TurnExecutor.BLOCKS_PER_BIMESTER):
+		TurnExecutor.set_agenda_slot(i, slots[i])
+	AstralAudio.play_confirm()
+	toast.emit("Plantilla de agenda aplicada a los 3 decanos", "info")
+
 func _on_activity_selected(slot: int, item: int) -> void:
 	if _updating:
 		return
+	AstralAudio.play_ui()
 	TurnExecutor.set_agenda_slot(slot, str(_option_buttons[slot].get_item_metadata(item)))
 
 func _on_father_pressed(task_id: String) -> void:
 	var res: Dictionary = TurnExecutor.toggle_father_task(task_id)
 	if not res["ok"]:
+		AstralAudio.play_warn()
 		toast.emit(str(res["msg"]), "warn")
+	else:
+		AstralAudio.play_ui()
 
 func _on_plan_changed() -> void:
 	if visible:
@@ -149,6 +184,7 @@ func refresh() -> void:
 	if not _built_ok():
 		return
 	_updating = true
+	_tabs.set_tab_title(0, "  Agenda de %s  " % GameState.daughter_name)
 	var bim: Dictionary = TimeManager.get_bimester_info()
 	_bim_info.text = "[b]%s[/b]  —  %s\n%s" % [bim["name"], bim["season"], AstralTheme.colored("Bono del bimestre: " + str(bim["bonus_desc"]), AstralTheme.GOLD_PALE)]
 
@@ -226,7 +262,7 @@ func _summary_text(chk: Dictionary) -> String:
 		AstralTheme.colored(str(GameState.gold + net) + " G", AstralTheme.IVORY)])
 	var proj: int = GameState.stress + int(chk["stress"])
 	if proj >= TurnExecutor.STRESS_COLLAPSE_THRESHOLD:
-		lines.append(AstralTheme.colored("%s Riesgo de colapso: el estrés podría llegar a %d y Renpet se desplomaría antes del final." % [AstralTheme.G_BOLT, proj], AstralTheme.BAD))
+		lines.append(AstralTheme.colored("%s Riesgo de colapso: el estrés podría llegar a %d y %s se desplomaría antes del final." % [AstralTheme.G_BOLT, proj, GameState.daughter_name], AstralTheme.BAD))
 	elif chk["fatigue_warning"] or proj >= TurnExecutor.STRESS_FATIGUE_THRESHOLD:
 		lines.append(AstralTheme.colored("%s Fatiga: con 80 o más de Estrés, las ganancias bajan un 25%%." % AstralTheme.G_BOLT, AstralTheme.EMBER))
 	for n in chk["multiplier_notes"]:

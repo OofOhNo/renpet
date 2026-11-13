@@ -119,6 +119,7 @@ func _apply_stance(topic: Dictionary, att: String) -> void:
 		GameState.daughter_name, AstralTheme.colored(str(st["reply"]), AstralTheme.IVORY), "  ·  ".join(labels)]
 	_selected_topic = ""
 	speak.emit("%s — junto a la chimenea" % GameState.daughter_name, str(st["reply"]))
+	AstralAudio.play_confirm()
 	toast.emit("Charla compartida con %s" % GameState.daughter_name, "good")
 	refresh()
 
@@ -149,6 +150,7 @@ func _refresh_diet() -> void:
 		btn.pressed.connect(func() -> void:
 			GameState.current_diet = did as GameState.DietPlan
 			GameState.stats_updated.emit()
+			AstralAudio.play_confirm()
 			speak.emit("Mesa familiar", "Nuevo régimen: %s." % CatalogDB.get_diet(did)["name"])
 			refresh())
 		h.add_child(btn)
@@ -192,6 +194,7 @@ func _upgrade(fid: String) -> void:
 	var lvl: int = int(GameState.estate_levels.get(fid, 1))
 	var cost: int = UPGRADE_BASE_COST * lvl
 	if lvl >= MAX_LEVEL or not GameState.modify_gold(-cost):
+		AstralAudio.play_warn()
 		toast.emit("No alcanza el oro para la mejora.", "warn")
 		return
 	GameState.estate_levels[fid] = lvl + 1
@@ -201,6 +204,7 @@ func _upgrade(fid: String) -> void:
 			fname = f["name"]
 	Chronicle.record_event("estate_" + fid, "Mejora de la mansión: " + fname, "%s subió al nivel %d." % [fname, lvl + 1], "family", 2)
 	GameState.stats_updated.emit()
+	AstralAudio.play_triumph()
 	speak.emit("Mansión Solar", "%s ahora es de nivel %d." % [fname, lvl + 1])
 	toast.emit("%s → nivel %d" % [fname, lvl + 1], "good")
 	refresh()

@@ -10,6 +10,10 @@ var _tap_btn: Button
 var _boon_hint: Label
 var _anim: float = 0.0
 var _title_label: Label
+var _ring_layer: Control
+var _ring_outer: TextureRect
+var _ring_inner: TextureRect
+var _mute_btn: Button
 
 func _ready() -> void:
 	theme = AstralTheme.get_theme()
@@ -28,6 +32,17 @@ func _ready() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
 	add_child(StarField.new())
+
+	_ring_layer = Control.new()
+	_ring_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ring_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_ring_layer)
+	_ring_outer = _make_title_ring("res://assets/ui/astrolabe_ring_outer.png", Color(0.84, 0.69, 0.36, 0.16), 620.0)
+	_ring_inner = _make_title_ring("res://assets/ui/astrolabe_ring_inner.png", Color(0.32, 0.72, 0.68, 0.18), 440.0)
+	_ring_layer.add_child(_ring_outer)
+	_ring_layer.add_child(_ring_inner)
+	_ring_layer.resized.connect(_layout_rings)
+	call_deferred("_layout_rings")
 
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -55,22 +70,30 @@ func _ready() -> void:
 	var latest: int = _latest_slot()
 	var b_new := AstralTheme.button("Nueva Partida", "PrimaryButton")
 	b_new.custom_minimum_size.y = 62
-	b_new.pressed.connect(_new_game)
+	b_new.pressed.connect(func() -> void:
+		AstralAudio.play_confirm()
+		_new_game())
 	col.add_child(b_new)
 	var b_cont := AstralTheme.button("Continuar")
 	b_cont.custom_minimum_size.y = 56
 	b_cont.disabled = latest < 0
-	b_cont.pressed.connect(func() -> void: _load(latest))
+	b_cont.pressed.connect(func() -> void:
+		AstralAudio.play_confirm()
+		_load(latest))
 	col.add_child(b_cont)
 	var b_load := AstralTheme.button("Cargar partida")
 	b_load.custom_minimum_size.y = 56
 	b_load.disabled = not SaveManager.has_any_save()
-	b_load.pressed.connect(func() -> void: _menu.open_slots(MenuOverlay.Mode.LOAD))
+	b_load.pressed.connect(func() -> void:
+		AstralAudio.play_ui()
+		_menu.open_slots(MenuOverlay.Mode.LOAD))
 	col.add_child(b_load)
 	var total_matrix: int = EndingEvaluator.BRANCH_ORDER.size() * EndingEvaluator.VOCATION_ORDER.size()
 	_tap_btn = AstralTheme.button("%s  El Tapiz de las Constelaciones (%d/%d)" % [AstralTheme.G_STAR, ConstellationTapestry.discovered_endings.size(), total_matrix])
 	_tap_btn.custom_minimum_size.y = 54
-	_tap_btn.pressed.connect(func() -> void: _tapestry.open_tapestry(0))
+	_tap_btn.pressed.connect(func() -> void:
+		AstralAudio.play_ui()
+		_tapestry.open_tapestry(0))
 	col.add_child(_tap_btn)
 	_boon_hint = AstralTheme.label("", "CaptionLabel", AstralTheme.GOOD, true)
 	_boon_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -81,10 +104,24 @@ func _ready() -> void:
 		b_quit.pressed.connect(func() -> void: get_tree().quit())
 		col.add_child(b_quit)
 
-	var foot := AstralTheme.label("Campaña Completa (Fases 1 a 9 · 65 Finales & NG+)  ·  Godot %s" % Engine.get_version_info()["string"], "CaptionLabel", AstralTheme.MUTED)
+	var foot := AstralTheme.label("Crónica Estelar · 65 Finales y Tapiz de Constelaciones  ·  Godot %s" % Engine.get_version_info()["string"], "CaptionLabel", AstralTheme.MUTED)
 	foot.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE, Control.PRESET_MODE_MINSIZE, 14)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(foot)
+
+	_mute_btn = AstralTheme.button("", "TabLikeButton", "Activa o silencia los efectos sonoros del observatorio")
+	_mute_btn.anchor_left = 1.0
+	_mute_btn.anchor_right = 1.0
+	_mute_btn.anchor_top = 0.0
+	_mute_btn.anchor_bottom = 0.0
+	_mute_btn.offset_left = -162
+	_mute_btn.offset_right = -20
+	_mute_btn.offset_top = 18
+	_mute_btn.offset_bottom = 54
+	_mute_btn.pressed.connect(func() -> void: AstralAudio.toggle_mute())
+	add_child(_mute_btn)
+	AstralAudio.mute_changed.connect(_sync_mute_btn)
+	_sync_mute_btn(AstralAudio.muted)
 
 	_menu = MenuOverlay.new()
 	add_child(_menu)
@@ -101,6 +138,35 @@ func _process(delta: float) -> void:
 	if _title_label != null:
 		var g: float = 0.88 + 0.12 * sin(_anim * 1.4)
 		_title_label.modulate = Color(g, g, g * 0.95)
+	if _ring_outer != null:
+		_ring_outer.rotation += delta * 0.045
+	if _ring_inner != null:
+		_ring_inner.rotation -= delta * 0.072
+
+func _make_title_ring(path: String, tint: Color, sz: float) -> TextureRect:
+	var t := TextureRect.new()
+	if ResourceLoader.exists(path):
+		t.texture = load(path)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.modulate = tint
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.size = Vector2(sz, sz)
+	t.pivot_offset = Vector2(sz * 0.5, sz * 0.5)
+	return t
+
+func _layout_rings() -> void:
+	if _ring_layer == null:
+		return
+	var c: Vector2 = _ring_layer.size * 0.5
+	for r in [_ring_outer, _ring_inner]:
+		if r != null:
+			r.pivot_offset = r.size * 0.5
+			r.position = c - r.size * 0.5
+
+func _sync_mute_btn(is_muted: bool) -> void:
+	if _mute_btn != null:
+		_mute_btn.text = "%s  Audio: %s" % [AstralTheme.G_MOON if is_muted else AstralTheme.G_SUN, "OFF" if is_muted else "ON"]
 
 func _latest_slot() -> int:
 	var best: int = -1

@@ -89,8 +89,10 @@ func _refresh_inventory() -> void:
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.custom_minimum_size.y = 46
 		b.disabled = count <= 0
+		b.tooltip_text = "%s\nDónde conseguirlo: %s (o en el Bazar de Medianoche / Destilación)." % [str(m.get("origin", "")), "Bazar de Medianoche o Destilación" if int(m.get("exclusive_rep", 0)) == 0 else "Bazar con Reputación Paterna >= %d" % int(m.get("exclusive_rep", 0))]
 		var mid: String = m["id"]
 		b.pressed.connect(func() -> void:
+			AstralAudio.play_ui()
 			_selected = mid
 			refresh())
 		_inv_box.add_child(b)
@@ -151,6 +153,7 @@ func _try_assimilate(mid: String, confirmed: bool) -> void:
 		_confirm.popup_centered(Vector2i(560, 220))
 		return
 	if not res.get("ok", false):
+		AstralAudio.play_warn()
 		toast.emit(str(res.get("msg", "No se pudo asimilar.")), "warn")
 		return
 	var text: String = "Asimilaste %s. %s" % [res["name"], ", ".join(res["gains"])]
@@ -158,6 +161,9 @@ func _try_assimilate(mid: String, confirmed: bool) -> void:
 		text += "  ¡Mutación despertada: %s!" % res["mutation_name"]
 	if res["overload"]:
 		text = "¡SOBRECARGA ASTRAL! " + text
+		AstralAudio.play_warn()
+	else:
+		AstralAudio.play_triumph() if res["new_mutation"] else AstralAudio.play_confirm()
 	speak.emit("Horno Astral", text)
 	toast.emit(text, "bad" if res["overload"] else "good")
 	refresh()
@@ -192,6 +198,7 @@ func _refresh_shop() -> void:
 		var mid: String = m["id"]
 		b.pressed.connect(func() -> void:
 			var r: Dictionary = CrucibleManager.buy_material(mid)
+			AstralAudio.play_confirm() if r.get("ok", false) else AstralAudio.play_warn()
 			toast.emit(str(r.get("msg", "")), "good" if r.get("ok", false) else "warn")
 			refresh())
 		grid.add_child(b)
@@ -205,6 +212,7 @@ func _refresh_shop() -> void:
 	dist.disabled = CrucibleManager.distilled_this_bimester or GameState.gold < CrucibleManager.get_distill_cost()
 	dist.pressed.connect(func() -> void:
 		var r: Dictionary = CrucibleManager.distill_relic()
+		AstralAudio.play_triumph() if r.get("ok", false) else AstralAudio.play_warn()
 		speak.emit("Horno Astral", str(r.get("msg", "")))
 		toast.emit(str(r.get("msg", "")), "good" if r.get("ok", false) else "warn")
 		refresh())
@@ -216,6 +224,7 @@ func _refresh_shop() -> void:
 	pur.disabled = GameState.astral_saturation <= 0 or GameState.gold < CrucibleManager.get_purify_cost()
 	pur.pressed.connect(func() -> void:
 		var r: Dictionary = CrucibleManager.purify_saturation()
+		AstralAudio.play_confirm() if r.get("ok", false) else AstralAudio.play_warn()
 		speak.emit("Termas de Alabastro", str(r.get("msg", "")))
 		toast.emit(str(r.get("msg", "")), "good" if r.get("ok", false) else "warn")
 		refresh())

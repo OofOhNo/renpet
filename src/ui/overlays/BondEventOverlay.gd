@@ -12,6 +12,7 @@ func play(npc_id: String) -> void:
 	var info: Dictionary = RelationshipManager.get_next_bond_event(npc_id)
 	if not info.get("ok", false):
 		return
+	AstralAudio.play_confirm()
 	var ev: Dictionary = info["event"]
 	var data: Dictionary = RelationshipManager.get_data(npc_id)
 	set_panel_width(960)

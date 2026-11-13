@@ -282,7 +282,30 @@ func _branch_body_args(branch_id: String) -> Array:
 		return [GameState.daughter_name, GameState.father_name]
 	return [GameState.daughter_name]
 
-func _evaluate_vocation() -> Dictionary:
+func get_projected_vocation() -> Dictionary:
+	var scores: Dictionary = _score_vocations()
+	var best_id: String = "wanderer"
+	var best_val: int = -1
+	var second_id: String = "wanderer"
+	var second_val: int = -1
+	for vid in VOCATION_ORDER:
+		var val: int = int(scores.get(vid, 0))
+		if val > best_val:
+			second_val = best_val
+			second_id = best_id
+			best_val = val
+			best_id = vid
+		elif val > second_val:
+			second_val = val
+			second_id = vid
+	var out: Dictionary = VOCATIONS[best_id].duplicate()
+	out["id"] = best_id
+	out["score"] = best_val
+	out["runner_up_id"] = second_id
+	out["runner_up_name"] = str(VOCATIONS.get(second_id, {}).get("name", ""))
+	return out
+
+func _score_vocations() -> Dictionary:
 	var t: int = GameState.temple
 	var dx: int = GameState.destreza
 	var er: int = GameState.erudicion
@@ -296,7 +319,7 @@ func _evaluate_vocation() -> Dictionary:
 	var muts: int = GameState.active_mutations.size()
 	var syns: int = GameState.unlocked_synergies.size()
 
-	var scores: Dictionary = {
+	return {
 		"sovereign": gr + mg + GameState.father_reputation * 5 + fest * 90,
 		"marshal": t + dx + GameState.father_reputation * 2 + shards * 45,
 		"archmage": er + lm + GameState.seal_investigation_progress * 3,
@@ -312,18 +335,8 @@ func _evaluate_vocation() -> Dictionary:
 		"wanderer": 640
 	}
 
-	var best_id: String = "wanderer"
-	var best_val: int = -1
-	for vid in VOCATION_ORDER:
-		var val: int = int(scores.get(vid, 0))
-		if val > best_val:
-			best_val = val
-			best_id = vid
-
-	var vdata: Dictionary = VOCATIONS[best_id].duplicate()
-	vdata["id"] = best_id
-	vdata["score"] = best_val
-	return vdata
+func _evaluate_vocation() -> Dictionary:
+	return get_projected_vocation()
 
 func compose_matrix_ending(branch_id: String, vocation_id: String) -> Dictionary:
 	var title: String = str(MATRIX_TITLES.get(branch_id, {}).get(vocation_id, "Destino de las Estrellas"))

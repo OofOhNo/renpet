@@ -113,15 +113,22 @@ func reset_bimester_flags() -> void:
 # ------------------------------------------------------------------------------
 # CONSULTAS
 # ------------------------------------------------------------------------------
+func _personalize(text: String) -> String:
+	if GameState.daughter_name == "Renpet" or GameState.daughter_name.strip_edges() == "":
+		return text
+	return text.replace("Renpet-Neheh", "__RN_GODDESS__").replace("Renpet", GameState.daughter_name).replace("__RN_GODDESS__", "Renpet-Neheh")
+
 func get_data(npc_id: String) -> Dictionary:
 	var base: Dictionary = NPC_DATA.get(npc_id, {})
-	if npc_id == "zephyr" and not base.is_empty() and GameState.get_secret_tier() >= 2:
-		var revealed := base.duplicate(true)
-		revealed["name"] = "Zephyr (Nyx-Aethel)"
-		revealed["title"] = "El Lucero Prisionero Detrás del Espejo"
-		revealed["bio"] = "El espíritu primordial del libre albedrío encerrado por la Diosa Renpet-Neheh dentro de la estrella que se convirtió en tu hija."
-		return revealed
-	return base
+	if base.is_empty():
+		return {}
+	var out := base.duplicate(true)
+	if npc_id == "zephyr" and GameState.get_secret_tier() >= 2:
+		out["name"] = "Zephyr (Nyx-Aethel)"
+		out["title"] = "El Lucero Prisionero Detrás del Espejo"
+		out["bio"] = "El espíritu primordial del libre albedrío encerrado por la Diosa Renpet-Neheh dentro de la estrella que se convirtió en tu hija."
+	out["bio"] = _personalize(str(out.get("bio", "")))
+	return out
 
 func get_state(npc_id: String) -> Dictionary:
 	return state.get(npc_id, {})
@@ -279,6 +286,7 @@ func interact_with_candidate(npc_id: String, action_type: String) -> Dictionary:
 	GameState.end_batch()
 
 	_update_stage(npc_id)
+	reply = _personalize(reply)
 	var new_status: String = get_relationship_status_title(npc_id)
 	Chronicle.record_event("bond_%s_%s" % [action_type, npc_id], "Salida con %s (%s)" % [data["name"], new_status], reply, "social", 3)
 	relationship_updated.emit(npc_id)

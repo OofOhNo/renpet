@@ -95,12 +95,22 @@ func _section(parent: VBoxContainer, title: String, keys: Array, max_v: int) -> 
 func refresh() -> void:
 	if _tabs == null:
 		return
+	if title_label != null:
+		title_label.text = "Ficha de %s" % GameState.daughter_name
 	for k in _bars.keys():
 		(_bars[k] as StatBar).set_title(GameState.get_stat_label(k))
 		(_bars[k] as StatBar).set_value(GameState.get_stat(k))
-	_head_rich.text = "[b]%s[/b], %d años   ·   Padre: [b]%s[/b], %s\n%s" % [
+	var voc: Dictionary = EndingEvaluator.get_projected_vocation()
+	var runner_txt: String = str(voc.get("runner_up_name", ""))
+	var voc_line: String = "%s  Vocación proyectada: [b]%s[/b] (%s)" % [
+		AstralTheme.G_STAR, str(voc.get("name", "")), str(voc.get("tag", ""))
+	]
+	if runner_txt != "" and runner_txt != str(voc.get("name", "")):
+		voc_line += "   ·   2.ª vía cercana: [i]%s[/i]" % runner_txt
+	_head_rich.text = "[b]%s[/b], %d años   ·   Padre: [b]%s[/b], %s\n%s\n%s" % [
 		GameState.daughter_name, GameState.age, GameState.father_name, GameState.get_archetype_title(),
-		AstralTheme.colored(GameState.get_metaphysical_state_title(), AstralTheme.TURQ)]
+		AstralTheme.colored(GameState.get_metaphysical_state_title(), AstralTheme.TURQ),
+		AstralTheme.colored(voc_line, AstralTheme.GOLD_PALE)]
 	_refresh_traits()
 	_refresh_synergies()
 	_refresh_mutations()
@@ -172,7 +182,7 @@ func _refresh_mutations() -> void:
 func _refresh_chronicle() -> void:
 	clear(_letters_box)
 	if Chronicle.letters_archive.is_empty():
-		_letters_box.add_child(AstralTheme.label("Aún no hay cartas. Renpet escribe una cada noche de Solsticio (Bimestre 6).", "CaptionLabel", AstralTheme.MUTED, true))
+		_letters_box.add_child(AstralTheme.label("Aún no hay cartas. %s escribe una cada noche de Solsticio (Bimestre 6)." % GameState.daughter_name, "CaptionLabel", AstralTheme.MUTED, true))
 	for lt in Chronicle.letters_archive:
 		var b := AstralTheme.button("%s  %s" % [AstralTheme.G_ENVELOPE, lt["title"]], "")
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT

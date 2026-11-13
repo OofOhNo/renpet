@@ -50,10 +50,10 @@ func build() -> void:
 	_comp_opt = OptionButton.new()
 	_comp_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for npc_id in RelationshipManager.NPC_ORDER:
-		var data: Dictionary = RelationshipManager.get_data(npc_id)
-		_comp_opt.add_item("%s — %s" % [data["name"], data["title"]])
+		_comp_opt.add_item("...")
 		_comp_opt.set_item_metadata(_comp_opt.item_count - 1, npc_id)
 	_comp_opt.selected = 1   # Vespera por defecto
+	_refresh_companion_options()
 	_comp_opt.item_selected.connect(_on_companion_changed)
 	ch.add_child(_comp_opt)
 
@@ -116,6 +116,8 @@ func _refresh_exploration_tab() -> void:
 	]
 
 	BaseWindow.clear(_zones_box)
+	var sel_npc: String = str(_comp_opt.get_item_metadata(_comp_opt.selected)) if _comp_opt != null and _comp_opt.item_count > 0 else "vespera"
+	var comp_ok: bool = RelationshipManager.is_available(sel_npc) and ExplorationCombat.can_recruit_companion(sel_npc)
 	for i in range(ExplorationCombat.ZONES.size()):
 		var z: Dictionary = ExplorationCombat.ZONES[i]
 		var min_age: int = int(z["min_age"])
@@ -154,12 +156,15 @@ func _refresh_exploration_tab() -> void:
 			"CaptionLabel", AstralTheme.TURQ
 		))
 
+		var btn_label: String = "Requiere %d años" % min_age if locked_age else ("Ya explorado" if ExplorationCombat.explored_this_bimester else ("Aliado no disp." if not comp_ok else "%s  Explorar" % AstralTheme.G_SWORD))
 		var btn := AstralTheme.button(
-			"Requiere %d años" % min_age if locked_age else ("Ya explorado" if ExplorationCombat.explored_this_bimester else "%s  Explorar" % AstralTheme.G_SWORD),
-			"" if (locked_age or ExplorationCombat.explored_this_bimester) else "PrimaryButton"
+			btn_label,
+			"" if (locked_age or ExplorationCombat.explored_this_bimester or not comp_ok) else "PrimaryButton"
 		)
 		btn.custom_minimum_size = Vector2(165, 48)
-		btn.disabled = locked_age or ExplorationCombat.explored_this_bimester
+		btn.disabled = locked_age or ExplorationCombat.explored_this_bimester or not comp_ok
+		if not comp_ok and not locked_age:
+			btn.tooltip_text = RelationshipManager.get_locked_reason(sel_npc) if not RelationshipManager.is_available(sel_npc) else "El compañero seleccionado tiene un vínculo hostil."
 		var z_idx: int = i
 		btn.pressed.connect(_on_explore_pressed.bind(z_idx))
 		row.add_child(btn)
@@ -168,6 +173,8 @@ func _refresh_festival_tab() -> void:
 	var is_open: bool = TimeManager.is_festival_bimester()
 	var entered: bool = ExplorationCombat.festival_entered_this_year
 	var wins_count: int = ExplorationCombat.festival_wins.size()
+	if not entered and _fest_result_card != null:
+		_fest_result_card.visible = false
 
 	if not is_open:
 		_fest_banner_lbl.text = "%s  El Gran Festival de las Constelaciones abre sus puertas cada 4º Bimestre (Cosecha / Equinoccio de Otoño).\nVictorias acumuladas en campaña: %d. Entrena los atributos clave antes de otoño." % [AstralTheme.G_SUN, wins_count]
@@ -235,7 +242,9 @@ func _refresh_festival_tab() -> void:
 		row.add_child(btn)
 
 func _on_companion_changed(_idx: int) -> void:
+	AstralAudio.play_ui()
 	_update_companion_info()
+	_refresh_exploration_tab()
 
 func _update_companion_info() -> void:
 	if _comp_opt == null or _comp_info == null:

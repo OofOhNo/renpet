@@ -133,17 +133,22 @@ func test_save_roundtrip() -> void:
 	TurnExecutor.set_agenda_slot(0, "class_armory")
 	TurnExecutor.toggle_father_task("diplomacy")
 	TurnExecutor.resolve_bimester()
+	TurnExecutor.astrolabe_tuned_this_bimester = true
 	RelationshipManager.interact_with_candidate("soren", "support")
-	var before: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"])
+	var before: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"]) + JSON.stringify(SaveManager.build_payload()["plan"])
 	check(SaveManager.save_game(2), "no se pudo guardar en la ranura 2")
 	GameState.gold = 1
+	TurnExecutor.astrolabe_tuned_this_bimester = false
 	RelationshipManager.state["soren"]["affection"] = -99
 	RivalMirror.scores["vespera"] = 5
 	var res: Dictionary = SaveManager.load_game(2)
 	check(res.get("ok", false), "no se pudo cargar: %s" % res.get("msg", ""))
-	var after: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"])
+	var after: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"]) + JSON.stringify(SaveManager.build_payload()["plan"])
 	check(before == after, "el estado cargado difiere del guardado")
 	check(RelationshipManager.interacted_this_bimester, "no se restauró la salida social del bimestre")
+	check(TurnExecutor.astrolabe_tuned_this_bimester, "no se restauró la sintonía del astrolabio")
+	TurnExecutor.resolve_bimester()
+	check(not TurnExecutor.astrolabe_tuned_this_bimester, "la sintonía del astrolabio debería resetearse tras resolver el bimestre")
 	SaveManager.delete_slot(2)
 
 func test_age_gate() -> void:
@@ -163,6 +168,9 @@ func test_age_gate() -> void:
 	GameState.age = 18
 	check(RelationshipManager.romance_available("soren"), "romance debería estar disponible con Soren a los 18")
 	check(not RelationshipManager.romance_available("nadie"), "personaje inexistente")
+	GameState.age = 12
+	check(not ExplorationCombat.start_expedition(0, "zephyr", "Zephyr").get("ok", false), "Zephyr no debería ser reclutable a los 12")
+	check(not EndingEvaluator.get_projected_vocation().is_empty(), "proyección de vocación disponible")
 
 func test_catalog_integrity() -> void:
 	print("\n=== Integridad de catálogos ===")

@@ -33,11 +33,20 @@ func _ready() -> void:
 	await frames(4)
 	check(GameState.daughter_name == "Luna" and GameState.prologue_completed, "creación del héroe")
 	check(GameState.erudicion >= 170, "bono del arquetipo Sabio")
+	hub._say_stage_reaction()
+	check(hub._lbl_speaker.text.contains("Luna"), "etapa y diálogo personalizados con Luna")
 
 	for w in ["schedule", "status", "hearth", "crucible", "town", "explore"]:
 		hub.debug_open_window(w)
 		await frames(3)
 		check(hub._windows[w].visible, "ventana %s no visible" % w)
+	check(hub._windows["status"].title_label.text == "Ficha de Luna", "título dinámico en Ficha de Renpet")
+	hub._windows["schedule"]._apply_preset("sabia")
+	await frames(2)
+	check(TurnExecutor.agenda[0] == "class_astrolabe", "plantilla rápida de agenda")
+	var locked_exp: Dictionary = ExplorationCombat.start_expedition(0, "zephyr", "Zephyr")
+	check(not bool(locked_exp.get("ok", false)), "Zephyr bloqueado en expedición a los 12 años")
+	check(not EndingEvaluator.get_projected_vocation().is_empty(), "proyección de vocación en partida")
 	hub._windows["explore"].open_festival_tab()
 	await frames(2)
 
@@ -76,6 +85,22 @@ func _ready() -> void:
 	hub._windows["crucible"]._try_assimilate("comet_dust", false)
 	await frames(2)
 
+	# Minijuego interactivo del Astrolabio
+	hub._close_windows()
+	await frames(2)
+	hub._open_ritual()
+	await frames(2)
+	check(hub._ritual.visible, "minijuego Astrolabio visible")
+	var lum_before: int = GameState.luminiscencia
+	for _r in range(3):
+		hub._ritual.lock_current_ring()
+	await frames(2)
+	check(TurnExecutor.astrolabe_tuned_this_bimester, "ritual del astrolabio marcado como completado")
+	check(GameState.luminiscencia > lum_before, "ritual otorgó Luminiscencia")
+	hub._ritual.hide_overlay()
+	await frames(2)
+	check(hub._ritual_btn.disabled, "botón de sintonía deshabilitado tras usarse")
+
 	# Menú de guardado
 	hub._menu.open_pause(true)
 	await frames(2)
@@ -105,6 +130,8 @@ func _ready() -> void:
 		if not hub._report.visible:
 			print("  turno ", TimeManager.current_total_turn, " estrés ", GameState.stress, " oro ", GameState.gold, " validación: ", TurnExecutor.validate_and_preview(), " agenda ", TurnExecutor.agenda)
 		check(hub._report.visible, "informe del turno %d" % TimeManager.current_total_turn)
+		if guard == 1:
+			check(not TurnExecutor.astrolabe_tuned_this_bimester, "sintonía del astrolabio reseteada al pasar bimestre")
 		if not hub._report.visible:
 			break
 		hub._report.hide_overlay()

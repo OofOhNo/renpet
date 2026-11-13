@@ -94,7 +94,7 @@ func _npc_card(npc_id: String) -> Control:
 	var used: bool = RelationshipManager.interacted_this_bimester
 	acts.add_child(_action_btn("%s  Apoyar" % AstralTheme.G_STAR, npc_id, "support", used, "+16 Afecto, +14 Respeto, +5 Anclaje Humano."))
 	acts.add_child(_action_btn("%s  Regalar (-%d G)" % [AstralTheme.G_FLOWER, RelationshipManager.SOCIAL_COST_GIFT], npc_id, "gift", used or GameState.gold < RelationshipManager.SOCIAL_COST_GIFT, "+22 Afecto, +10 Respeto."))
-	acts.add_child(_action_btn("%s  Provocar" % AstralTheme.G_SWORD, npc_id, "provoke", used, "-30 Afecto y +6 Entropía. Si Renpet es fuerte, el rival la respeta más."))
+	acts.add_child(_action_btn("%s  Provocar" % AstralTheme.G_SWORD, npc_id, "provoke", used, "-30 Afecto y +6 Entropía. Si %s es fuerte, el rival la respeta más." % GameState.daughter_name))
 	if RelationshipManager.romance_available(npc_id):
 		acts.add_child(_action_btn("%s  Cita romántica" % AstralTheme.G_HEART, npc_id, "romance", used, "+20 Chispa, +12 Afecto, -10 Estrés."))
 	var ev: Dictionary = RelationshipManager.get_next_bond_event(npc_id)
@@ -118,8 +118,13 @@ func _action_btn(text: String, npc_id: String, action: String, disabled: bool, t
 func _do_action(npc_id: String, action: String) -> void:
 	var res: Dictionary = RelationshipManager.interact_with_candidate(npc_id, action)
 	if not res.get("ok", false):
+		AstralAudio.play_warn()
 		toast.emit(str(res.get("msg", "")), "warn")
 		return
+	if action == "provoke":
+		AstralAudio.play_warn()
+	else:
+		AstralAudio.play_confirm()
 	speak.emit(str(res["speaker"]), "%s\n[color=%s]%s[/color]" % [res["reply"], AstralTheme.hex(AstralTheme.GOLD_PALE), res["effects"]])
 	refresh()
 
@@ -163,8 +168,13 @@ func _refresh_rivals() -> void:
 func _duel(rid: String) -> void:
 	var res: Dictionary = RivalMirror.challenge_rival_duel(rid)
 	if not res.get("ok", false):
+		AstralAudio.play_warn()
 		toast.emit(str(res.get("msg", "")), "warn")
 		return
+	if res["won"]:
+		AstralAudio.play_triumph()
+	else:
+		AstralAudio.play_warn()
 	speak.emit(str(res["speaker"]), "%s\n[color=%s]%s[/color]" % [res["reply"], AstralTheme.hex(AstralTheme.GOLD_PALE), res["effects"]])
 	toast.emit("¡Victoria de prestigio!" if res["won"] else "Derrota honorable: a entrenar", "good" if res["won"] else "warn")
 	refresh()

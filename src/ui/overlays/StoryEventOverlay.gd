@@ -12,6 +12,10 @@ func show_story_event(ev: Dictionary) -> void:
 		return
 	_act_id = int(ev.get("act_id", 0))
 	var is_twist: bool = bool(ev.get("is_twist", false))
+	if is_twist:
+		AstralAudio.play_twist()
+	else:
+		AstralAudio.play_confirm()
 	var title: String = str(ev.get("title", "Evento de Historia"))
 	var body_txt: String = str(ev.get("body", ""))
 	var choices: Array = ev.get("choices", [])
