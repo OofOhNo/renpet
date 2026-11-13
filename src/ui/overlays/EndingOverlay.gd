@@ -32,6 +32,8 @@ func _show_step_climax() -> void:
 
 	set_panel_width(980)
 	rebuild(func() -> void:
+		var ban_path: String = "res://assets/art/bg_zone_crater.png" if (branch_id == "branch_eclipse" or branch_id == "branch_deicide") else "res://assets/art/bg_prologue_goddess.png"
+		content.add_child(AstralTheme.scenic_banner(ban_path, 116.0, Color(1, 1, 1, 0.94)))
 		var head := AstralTheme.hbox(14)
 		var icon := TextureRect.new()
 		icon.texture = load(icon_path)

@@ -18,6 +18,7 @@ var _mute_btn: Button
 func _ready() -> void:
 	theme = AstralTheme.get_theme()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	AstralAudio.set_music_mood("title")
 
 	var bg := TextureRect.new()
 	bg.texture = load("res://assets/art/bg_prologue_goddess.png")
@@ -95,6 +96,12 @@ func _ready() -> void:
 		AstralAudio.play_ui()
 		_tapestry.open_tapestry(0))
 	col.add_child(_tap_btn)
+	var b_opts := AstralTheme.button("%s  Opciones y Audio" % AstralTheme.G_ANKH)
+	b_opts.custom_minimum_size.y = 50
+	b_opts.pressed.connect(func() -> void:
+		AstralAudio.play_ui()
+		_menu.open_settings())
+	col.add_child(b_opts)
 	_boon_hint = AstralTheme.label("", "CaptionLabel", AstralTheme.GOOD, true)
 	_boon_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_boon_hint)
@@ -179,7 +186,7 @@ func _latest_slot() -> int:
 
 func _new_game() -> void:
 	SaveManager.pending_load_slot = -1
-	get_tree().change_scene_to_file(MANOR_SCENE)
+	_fade_to_manor()
 
 func _refresh_tap_btn() -> void:
 	if _tap_btn != null:
@@ -193,7 +200,20 @@ func _refresh_tap_btn() -> void:
 
 func _load(slot: int) -> void:
 	SaveManager.pending_load_slot = slot
-	get_tree().change_scene_to_file(MANOR_SCENE)
+	_fade_to_manor()
+
+func _fade_to_manor() -> void:
+	if DisplayServer.get_name() == "headless":
+		get_tree().change_scene_to_file(MANOR_SCENE)
+		return
+	var curtain := ColorRect.new()
+	curtain.color = Color(0.01, 0.015, 0.06, 0.0)
+	curtain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	curtain.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(curtain)
+	var tw := create_tween()
+	tw.tween_property(curtain, "color:a", 1.0, 0.30)
+	tw.tween_callback(func() -> void: get_tree().change_scene_to_file(MANOR_SCENE))
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
@@ -207,5 +227,4 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_menu.hide_overlay()
 			get_viewport().set_input_as_handled()
 	elif kc == KEY_F11:
-		var full: bool = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+		SettingsManager.toggle_fullscreen()

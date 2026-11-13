@@ -17,6 +17,9 @@ func play(npc_id: String) -> void:
 	var data: Dictionary = RelationshipManager.get_data(npc_id)
 	set_panel_width(960)
 	rebuild(func() -> void:
+		var dist_map: Dictionary = {"soren": "torre", "cassian": "palacio", "vespera": "patio", "kaelen": "acueductos", "zephyr": "espejo", "mirari": "anfiteatro"}
+		var dist_id: String = str(dist_map.get(npc_id, "torre"))
+		content.add_child(AstralTheme.scenic_banner(CatalogDB.get_district_backdrop(dist_id), 108.0, Color(1, 1, 1, 0.92)))
 		var head := AstralTheme.hbox(14)
 		var icon := TextureRect.new()
 		icon.texture = load("res://assets/ui/npc_%s.png" % npc_id)

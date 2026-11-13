@@ -22,7 +22,7 @@ const EVENTS: Dictionary = {
 					"outcome": "Los ojos de Soren se endurecen tras sus lentes. Guarda silencio, pero jura superarte en el Gran Astrolabio."},
 				{"kind": "romance", "label": "Tomar sus manos: «Descifraremos juntos el cielo, Soren. Mi vida está en tus manos.»",
 					"affection": 22, "respect": 15, "spark": 28, "stat_effects": {"erudicion": 18, "seal_investigation": 10},
-					"outcome": "Soren entrelaza sus dedos con los tuyos bajo la cúpula estrellada, jurando encontrar la forma de romper el sello sin que mueras."}
+					"outcome": "Soren entrelaza sus dedos con los tuyos bajo la cúpula estrellada, jurando descifrar el origen de esa estrella sin ponerte en peligro."}
 			]
 		},
 		2: {

@@ -28,7 +28,8 @@ const STAT_COLORS: Dictionary = {
 	"luminiscencia": GOLD_PALE, "gravedad": AMETHYST, "resonancia": TURQ, "entropia": Color("c0587a"),
 	"moralidad": GOOD, "devocion": Color("9fd8ff"), "stress": Color("ff7b6b"), "affection": ROSE,
 	"human_anchor": EMBER, "seal_integrity": TURQ, "abyssal_sync": AMETHYST,
-	"astral_saturation": Color("c58cff"), "seal_investigation": SKY, "father_reputation": GOLD
+	"astral_saturation": Color("c58cff"), "seal_investigation": SKY, "father_reputation": GOLD,
+	"court_suspicion": Color("e85d75"), "mood_calm": SKY, "mood_pride": GOLD
 }
 
 const STAT_TOOLTIPS: Dictionary = {
@@ -43,14 +44,17 @@ const STAT_TOOLTIPS: Dictionary = {
 	"entropia": "Inclinación al caos. Alta y sin arraigo humano despierta una rebeldía astral peligrosa.",
 	"moralidad": "Brújula ética de Renpet.",
 	"devocion": "Vínculo espiritual con la Palma Celeste.",
-	"stress": "Sobre 80 rinde 25% menos; al llegar a 100 se desploma.",
+	"stress": "Sobre 80 rinde 25% menos; a 90+ provoca Agotamiento; a 100 se desploma.",
 	"affection": "Cariño hacia su padre. Muy alto (+80) con Anclaje alto forma el Orgullo del Hogar.",
 	"human_anchor": "Arraigo mortal, amor y empatía. Es lo que la mantiene humana.",
 	"seal_integrity": "Equilibrio de la luz estelar que late en su pecho. Si cae demasiado, algo oculto parece agitarse.",
-	"abyssal_sync": "Resonancia con la misteriosa voz o sombra que susurra desde el otro lado de sus sueños.",
+	"abyssal_sync": "Afinidad silenciosa con las sombras suaves que aparecen al caer la noche.",
 	"astral_saturation": "Toxicidad cósmica temporal del Horno. Sobre 60 absorbe peor; sobre 100 sobrecarga.",
-	"seal_investigation": "Avance de la investigación secreta sobre el verdadero origen de la estrella caída.",
-	"father_reputation": "Prestigio del Padre en Aethelgard: descuentos y objetos exclusivos."
+	"seal_investigation": "Apuntes sobre anomalías astrales e inscripciones antiguas borradas en la capital.",
+	"father_reputation": "Prestigio del Padre en Aethelgard: descuentos y objetos exclusivos.",
+	"court_suspicion": "Vigilancia del Senado y la Inquisición Solar. Crece con contrabando, sobrecargas y agitación astral.",
+	"mood_calm": "Temperamento Serena (-) frente a Inquieta (+): altera +20% / -15% el rendimiento en aulas afines.",
+	"mood_pride": "Temperamento Empática (-) frente a Arrogante (+): influye en Sanatorio, Corte y Chimenea."
 }
 
 # --- GLIFOS (todos incluidos en las fuentes del proyecto) ---------------------
@@ -81,6 +85,26 @@ const FONT_DIR := "res://assets/fonts/"
 
 static var _theme: Theme = null
 static var _fonts: Dictionary = {}
+static var _tex_cache: Dictionary = {}
+
+static func load_tex(res_path: String, fallback_path: String = "") -> Texture2D:
+	if _tex_cache.has(res_path):
+		return _tex_cache[res_path]
+	var tex: Texture2D = null
+	if ResourceLoader.exists(res_path):
+		var loaded: Variant = load(res_path)
+		if loaded is Texture2D:
+			tex = loaded as Texture2D
+	if tex == null and FileAccess.file_exists(res_path):
+		var abs_path: String = ProjectSettings.globalize_path(res_path)
+		var img := Image.load_from_file(abs_path)
+		if img != null and not img.is_empty():
+			tex = ImageTexture.create_from_image(img)
+	if tex == null and fallback_path != "" and fallback_path != res_path:
+		tex = load_tex(fallback_path)
+	if tex != null:
+		_tex_cache[res_path] = tex
+	return tex
 
 # ------------------------------------------------------------------------------
 # FUENTES
@@ -379,3 +403,119 @@ static func style_bar(bar: ProgressBar, color: Color) -> void:
 	bar.add_theme_stylebox_override("fill", box(color, Color(1, 1, 1, 0.18), 1, 7, 0))
 	bar.add_theme_stylebox_override("background", box(Color(0.02, 0.03, 0.09, 0.95), Color(GOLD_DARK, 0.7), 1, 7, 0))
 	bar.show_percentage = false
+
+## Pastilla visual compacta para estadísticas, costes o etiquetas de estado
+static func chip(text: String, col: Color = IVORY, border_col: Variant = null, font_sz: int = 14) -> PanelContainer:
+	var p := PanelContainer.new()
+	var bcol: Color = border_col if border_col != null else Color(col.r, col.g, col.b, 0.55)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.04, 0.06, 0.16, 0.92)
+	sb.border_color = bcol
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
+	var l := Label.new()
+	l.text = text
+	l.add_theme_color_override("font_color", col)
+	l.add_theme_font_size_override("font_size", font_sz)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(l)
+	return p
+
+## Marco ilustrado reutilizable para iconos, retratos pequeños o emblemas
+static func icon_box(tex_path: String, box_size: Vector2 = Vector2(46, 46), tint: Color = Color.WHITE, variation: String = "SunkenPanel") -> PanelContainer:
+	var frame := PanelContainer.new()
+	frame.theme_type_variation = variation
+	frame.custom_minimum_size = box_size
+	frame.mouse_filter = Control.MOUSE_FILTER_PASS
+	var tr := TextureRect.new()
+	tr.texture = load_tex(tex_path)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.custom_minimum_size = box_size - Vector2(10, 10)
+	tr.modulate = tint
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(tr)
+	return frame
+
+## Barra de progreso delgada sin texto para medidores visuales rápidos
+static func mini_bar(val: float, max_val: float, col: Color, h: float = 10.0) -> ProgressBar:
+	var pb := ProgressBar.new()
+	pb.min_value = 0.0
+	pb.max_value = maxf(1.0, max_val)
+	pb.value = clampf(val, 0.0, pb.max_value)
+	pb.show_percentage = false
+	pb.custom_minimum_size.y = h
+	pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pb.mouse_filter = Control.MOUSE_FILTER_PASS
+	style_bar(pb, col)
+	return pb
+
+## Banner ilustrado panorámico con viñeta oscura suave para distritos, escenas y zonas
+static func scenic_banner(tex_path: String, height: float = 128.0, tint: Color = Color(1, 1, 1, 0.92)) -> PanelContainer:
+	var frame := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PANEL_DARK
+	sb.border_color = Color(GOLD_DARK.r, GOLD_DARK.g, GOLD_DARK.b, 0.72)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(2)
+	frame.add_theme_stylebox_override("panel", sb)
+	frame.custom_minimum_size = Vector2(0, height)
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame.clip_contents = true
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var tex: Texture2D = load_tex(tex_path)
+	if tex != null:
+		var tr := TextureRect.new()
+		tr.texture = tex
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tr.modulate = tint
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.add_child(tr)
+
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.03, 0.045, 0.12, 0.05))
+	grad.set_color(1, Color(0.03, 0.045, 0.12, 0.78))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill = GradientTexture2D.FILL_LINEAR
+	gt.fill_from = Vector2(0.5, 0.0)
+	gt.fill_to = Vector2(0.5, 1.0)
+	var ov := TextureRect.new()
+	ov.texture = gt
+	ov.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ov.stretch_mode = TextureRect.STRETCH_SCALE
+	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(ov)
+	return frame
+
+## Viñeta ilustrada apaisada (recorte limpio para tarjetas de actividad, mejoras o decanos)
+static func vignette_card(tex_path: String, box_size: Vector2 = Vector2(96, 56), border_col: Color = GOLD_DARK) -> PanelContainer:
+	var frame := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PANEL_DARK
+	sb.border_color = Color(border_col.r, border_col.g, border_col.b, 0.75)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(8)
+	sb.set_content_margin_all(2)
+	frame.add_theme_stylebox_override("panel", sb)
+	frame.custom_minimum_size = box_size
+	frame.clip_contents = true
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tr := TextureRect.new()
+	tr.texture = load_tex(tex_path)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tr.custom_minimum_size = box_size - Vector2(4, 4)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(tr)
+	return frame

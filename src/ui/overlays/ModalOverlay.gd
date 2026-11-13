@@ -62,8 +62,11 @@ func _fit() -> void:
 	await get_tree().process_frame
 	if scroll == null or content == null:
 		return
-	var want: float = content.get_combined_minimum_size().y + 4.0
-	var cap: float = maxf(240.0, size.y * _max_height_ratio)
+	if panel != null and get_viewport() != null:
+		var max_w: float = maxf(360.0, get_viewport_rect().size.x - 44.0)
+		panel.custom_minimum_size.x = minf(float(_panel_width), max_w)
+	var want: float = content.get_combined_minimum_size().y + 8.0
+	var cap: float = maxf(220.0, size.y * _max_height_ratio)
 	scroll.custom_minimum_size = Vector2(0, minf(want, cap))
 
 func show_overlay() -> void:
@@ -78,8 +81,18 @@ func show_overlay() -> void:
 		first.grab_focus()
 
 func hide_overlay() -> void:
-	visible = false
-	closed.emit()
+	if not visible:
+		return
+	if DisplayServer.get_name() != "headless":
+		var tw := create_tween()
+		tw.tween_property(self, "modulate:a", 0.0, 0.12)
+		tw.tween_callback(func() -> void:
+			visible = false
+			modulate.a = 1.0
+			closed.emit())
+	else:
+		visible = false
+		closed.emit()
 
 func rebuild(builder: Callable) -> void:
 	for c in content.get_children():

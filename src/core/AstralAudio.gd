@@ -1,19 +1,64 @@
 extends Node
 
-## AstralAudio - Motor de sonido procedural cristalino (sin archivos externos).
-## Sintetiza arpas celestes, campanas de astrolabio y efectos táctiles de combate e interfaz.
+## AstralAudio - Motor de sonido y música ambiental procedural cristalino (sin archivos externos).
+## Sintetiza música adaptativa (Observatorio, Título, Tensión/Inquisición, Combate, Festival, Epílogo)
+## junto a efectos táctiles con controles independientes de Música y Efectos.
 
 signal mute_changed(is_muted: bool)
+signal volume_changed()
 
 const SAMPLE_RATE: float = 44100.0
-const BUFFER_LEN: float = 0.08
-const MAX_VOICES: int = 12
+const BUFFER_LEN: float = 0.09
+const MAX_VOICES: int = 16
+
+const MOOD_SCALES: Dictionary = {
+	"manor": {
+		"notes": [261.63, 329.63, 392.00, 493.88, 523.25, 392.00, 329.63, 293.66],
+		"bass": [130.81, 130.81, 110.00, 110.00, 146.83, 146.83, 98.00, 130.81],
+		"step_s": 0.92, "pad_amp": 0.030, "arp_amp": 0.028
+	},
+	"title": {
+		"notes": [293.66, 349.23, 440.00, 523.25, 587.33, 440.00, 349.23, 329.63],
+		"bass": [146.83, 146.83, 116.54, 116.54, 130.81, 130.81, 110.00, 146.83],
+		"step_s": 1.05, "pad_amp": 0.032, "arp_amp": 0.030
+	},
+	"tension": {
+		"notes": [220.00, 261.63, 329.63, 415.30, 329.63, 246.94, 220.00, 196.00],
+		"bass": [110.00, 110.00, 103.83, 103.83, 98.00, 98.00, 103.83, 110.00],
+		"step_s": 0.72, "pad_amp": 0.034, "arp_amp": 0.026
+	},
+	"combat": {
+		"notes": [293.66, 440.00, 349.23, 523.25, 440.00, 587.33, 523.25, 440.00],
+		"bass": [146.83, 146.83, 146.83, 164.81, 174.61, 174.61, 130.81, 146.83],
+		"step_s": 0.42, "pad_amp": 0.026, "arp_amp": 0.034
+	},
+	"festival": {
+		"notes": [349.23, 440.00, 523.25, 659.25, 587.33, 523.25, 440.00, 392.00],
+		"bass": [174.61, 174.61, 130.81, 130.81, 146.83, 146.83, 130.81, 174.61],
+		"step_s": 0.48, "pad_amp": 0.028, "arp_amp": 0.034
+	},
+	"ending": {
+		"notes": [261.63, 392.00, 493.88, 523.25, 659.25, 587.33, 493.88, 392.00],
+		"bass": [130.81, 130.81, 164.81, 164.81, 174.61, 174.61, 196.00, 130.81],
+		"step_s": 0.96, "pad_amp": 0.036, "arp_amp": 0.032
+	}
+}
 
 var muted: bool = false
+var bgm_volume: float = 0.65
+var sfx_volume: float = 0.85
+var music_mood: String = "title"
+
 var _enabled: bool = false
 var _player: AudioStreamPlayer
 var _playback: AudioStreamGeneratorPlayback
 var _voices: Array[Dictionary] = []
+
+var _bgm_step_timer: float = 0.0
+var _bgm_step_idx: int = 0
+var _bgm_pad_phase: float = 0.0
+var _bgm_pad_phase2: float = 0.0
+var _bgm_pad_freq: float = 130.81
 
 func _ready() -> void:
 	if DisplayServer.get_name() == "headless":
@@ -23,7 +68,7 @@ func _ready() -> void:
 	gen.buffer_length = BUFFER_LEN
 	_player = AudioStreamPlayer.new()
 	_player.stream = gen
-	_player.volume_db = -6.0
+	_player.volume_db = -4.0
 	add_child(_player)
 	_player.play()
 	var pb := _player.get_stream_playback()
@@ -32,10 +77,7 @@ func _ready() -> void:
 		_enabled = true
 
 func toggle_mute() -> bool:
-	muted = not muted
-	if muted:
-		_voices.clear()
-	mute_changed.emit(muted)
+	set_muted(not muted)
 	if not muted:
 		play_ui()
 	return muted
@@ -47,20 +89,43 @@ func set_muted(v: bool) -> void:
 	if muted:
 		_voices.clear()
 	mute_changed.emit(muted)
+	if SettingsManager != null and SettingsManager.muted != v:
+		SettingsManager.muted = v
+		SettingsManager.save_settings()
 
-func _add_voice(freq: float, dur: float, amp: float = 0.11, delay: float = 0.0, freq_end: float = -1.0, harmonic: float = 0.35) -> void:
+func set_bgm_volume(v: float) -> void:
+	bgm_volume = clampf(v, 0.0, 1.0)
+	volume_changed.emit()
+
+func set_sfx_volume(v: float) -> void:
+	sfx_volume = clampf(v, 0.0, 1.0)
+	volume_changed.emit()
+
+func set_music_mood(mood: String) -> void:
+	if MOOD_SCALES.has(mood) and music_mood != mood:
+		music_mood = mood
+		_bgm_step_idx = 0
+		_bgm_step_timer = 0.0
+
+func _add_voice(freq: float, dur: float, amp: float = 0.11, delay: float = 0.0, freq_end: float = -1.0, harmonic: float = 0.35, is_bgm: bool = false) -> void:
 	if not _enabled or muted:
 		return
 	if _voices.size() >= MAX_VOICES:
-		_voices.remove_at(0)
+		for k in range(_voices.size()):
+			if bool(_voices[k].get("bgm", false)):
+				_voices.remove_at(k)
+				break
+		if _voices.size() >= MAX_VOICES:
+			_voices.remove_at(0)
 	_voices.append({
 		"f0": freq,
 		"f1": freq_end if freq_end > 0.0 else freq,
 		"dur": maxf(0.03, dur),
 		"t": -delay,
 		"phase": 0.0,
-		"amp": clampf(amp, 0.01, 0.22),
-		"harm": clampf(harmonic, 0.0, 0.8)
+		"amp": clampf(amp, 0.005, 0.24),
+		"harm": clampf(harmonic, 0.0, 0.8),
+		"bgm": is_bgm
 	})
 
 func play_ui() -> void:
@@ -111,14 +176,30 @@ func play_combat(kind: String) -> void:
 		_:
 			play_ui()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _enabled or _playback == null:
 		return
+
+	var scale_data: Dictionary = MOOD_SCALES.get(music_mood, MOOD_SCALES["manor"])
+	var step_s: float = float(scale_data["step_s"])
+	if not muted and bgm_volume > 0.01:
+		_bgm_step_timer -= delta
+		if _bgm_step_timer <= 0.0:
+			_bgm_step_timer = step_s
+			var notes: Array = scale_data["notes"]
+			var bass: Array = scale_data["bass"]
+			var n_f: float = float(notes[_bgm_step_idx % notes.size()])
+			_bgm_pad_freq = float(bass[_bgm_step_idx % bass.size()])
+			_add_voice(n_f, step_s * 1.45, float(scale_data["arp_amp"]), 0.0, -1.0, 0.18, true)
+			if _bgm_step_idx % 2 == 0:
+				_add_voice(n_f * 1.5, step_s * 1.20, float(scale_data["arp_amp"]) * 0.55, 0.08, -1.0, 0.10, true)
+			_bgm_step_idx += 1
+
 	var avail: int = _playback.get_frames_available()
 	if avail <= 0:
 		return
-	if _voices.is_empty():
-		var silent: PackedVector2Array = PackedVector2Array()
+	if muted or (_voices.is_empty() and bgm_volume <= 0.01):
+		var silent := PackedVector2Array()
 		silent.resize(mini(avail, 512))
 		_playback.push_buffer(silent)
 		return
@@ -127,9 +208,15 @@ func _process(_delta: float) -> void:
 	var dt: float = 1.0 / SAMPLE_RATE
 	var buf := PackedVector2Array()
 	buf.resize(count)
+	var pad_amp: float = float(scale_data["pad_amp"]) * bgm_volume if not muted else 0.0
 
 	for i in range(count):
 		var mix: float = 0.0
+		if pad_amp > 0.0005:
+			_bgm_pad_phase = fmod(_bgm_pad_phase + _bgm_pad_freq * dt, 1.0)
+			_bgm_pad_phase2 = fmod(_bgm_pad_phase2 + (_bgm_pad_freq * 1.498) * dt, 1.0)
+			mix += (sin(_bgm_pad_phase * TAU) * 0.65 + sin(_bgm_pad_phase2 * TAU) * 0.35) * pad_amp
+
 		var v_idx: int = _voices.size() - 1
 		while v_idx >= 0:
 			var v: Dictionary = _voices[v_idx]
@@ -147,9 +234,10 @@ func _process(_delta: float) -> void:
 			var freq: float = lerpf(float(v["f0"]), float(v["f1"]), p)
 			var ph: float = fmod(float(v["phase"]) + freq * dt, 1.0)
 			v["phase"] = ph
-			var env: float = minf(1.0, t / 0.012) * exp(-p * 4.2)
+			var env: float = minf(1.0, t / (0.04 if bool(v.get("bgm", false)) else 0.012)) * exp(-p * (2.8 if bool(v.get("bgm", false)) else 4.2))
 			var sig: float = sin(ph * TAU) + float(v["harm"]) * 0.45 * sin(ph * TAU * 2.0) + float(v["harm"]) * 0.2 * sin(ph * TAU * 3.0)
-			mix += sig * env * float(v["amp"])
+			var gain: float = bgm_volume if bool(v.get("bgm", false)) else sfx_volume
+			mix += sig * env * float(v["amp"]) * gain
 			v_idx -= 1
 		var out_v: float = tanh(mix)
 		buf[i] = Vector2(out_v, out_v)

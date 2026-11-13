@@ -49,6 +49,9 @@ func set_title(t: String) -> void:
 	if _name_lbl != null:
 		_name_lbl.text = t
 
+func set_tooltip(tip: String) -> void:
+	tooltip_text = tip
+
 func set_value(v: int, animate: bool = true) -> void:
 	if _bar == null:
 		return

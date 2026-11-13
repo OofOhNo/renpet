@@ -12,19 +12,27 @@ signal plan_changed()
 const BLOCKS_PER_BIMESTER: int = 3
 const DAYS_PER_BLOCK: int = 20
 const STRESS_FATIGUE_THRESHOLD: int = 80   # >= : -25% de ganancias
+const STRESS_SICK_THRESHOLD: int = 90      # >= : entra en estado "Agotamiento"
 const STRESS_COLLAPSE_THRESHOLD: int = 100
 const MICRO_EVENT_CHANCE: int = 40         # % por bloque
-const COLLAPSE_CLINIC_FEE: int = 60
-const COLLAPSE_STRESS_AFTER: int = 55
+const COLLAPSE_CLINIC_FEE: int = 110
+const COLLAPSE_STRESS_AFTER: int = 58
 
 var agenda: Array[String] = ["class_armory", "class_astrolabe", "rest_manor"]
 var father_plan: Array[String] = []
 var astrolabe_tuned_this_bimester: bool = false
+var school_minigame_used_this_bimester: bool = false
+var pending_practical_act: String = ""
+var pending_practical_bonus: float = 0.0
 
 func reset_new_game() -> void:
 	agenda = ["class_armory", "class_astrolabe", "rest_manor"]
 	father_plan.clear()
 	astrolabe_tuned_this_bimester = false
+	school_minigame_used_this_bimester = false
+	pending_practical_act = ""
+	pending_practical_bonus = 0.0
+	GameState.clinic_tonic_used = false
 	plan_changed.emit()
 
 # ------------------------------------------------------------------------------
@@ -98,14 +106,21 @@ func validate_and_preview() -> Dictionary:
 			return {"ok": false, "msg": "Falta elegir la actividad del Decano %d." % (i + 1)}
 		if GameState.age < int(act.get("min_age", 12)):
 			return {"ok": false, "msg": "«%s» requiere %d años de edad." % [act["name"], int(act["min_age"])]}
+		if GameState.exhausted_sick and (act["category"] == "class" or act["id"] in ["job_caravan", "job_canals"]):
+			return {"ok": false, "msg": "%s está en estado crítico de Agotamiento: solo puedes asignarle descanso o el Sanatorio hasta que se recupere (o curarla en la Chimenea)." % GameState.daughter_name}
 		var wage: int = _activity_gold(act)
 		if gold + wage < 0:
 			return {"ok": false, "msg": "No alcanza el oro para «%s» (necesitas %d G y tendrás %d G)." % [act["name"], -wage, gold]}
 		gold += wage
 		net += wage
-		stress_total += int(act["stress"])
+		stress_total += _activity_stress(act)
 
 	var notes: Array[String] = []
+	if GameState.exhausted_sick:
+		notes.append("Estado Agotamiento: las clases están suspendidas hasta recuperarse.")
+	var m_sum: Dictionary = GameState.get_mood_summary()
+	if m_sum["calm"] != "Equilibrada" or m_sum["pride"] != "Ponderada":
+		notes.append("Temperamento actual: %s (+20%% clases afines, -15%% opuestas)" % m_sum["short_tag"])
 	if is_supervised():
 		notes.append("Supervisión paterna: +30%% de eficacia%s" % (" (+20% más por Orgullo del Hogar)" if GameState.has_trait_prefix("Orgullo del Hogar") else ""))
 	var bim: Dictionary = TimeManager.get_bimester_info()
@@ -152,7 +167,7 @@ func resolve_bimester() -> Dictionary:
 		var act: Dictionary = CatalogDB.get_activity(agenda[i])
 		var block: Dictionary = {"index": i + 1, "notes": [] as Array, "gains": [] as Array}
 
-		# Colapso por estrés del bloque anterior: la Doctora Helena la atiende
+		# Colapso por estrés del bloque anterior: la Doctora Helena la atiende con consecuencias
 		if collapsed:
 			act = CatalogDB.get_activity("rest_manor")
 			var fee: int = COLLAPSE_CLINIC_FEE if GameState.gold >= COLLAPSE_CLINIC_FEE else 0
@@ -160,27 +175,47 @@ func resolve_bimester() -> Dictionary:
 				GameState.modify_gold(-fee)
 			var now_stress: int = GameState.stress
 			GameState.modify_stat("stress", COLLAPSE_STRESS_AFTER - now_stress)
-			block["notes"].append("Colapso por agotamiento: la Doctora Helena atendió a %s en secreto%s. Este bloque se convierte en reposo forzoso." % [daughter, (" (-%d G)" % fee) if fee > 0 else ""])
+			GameState.exhausted_sick = true
+			GameState.sick_dialogue_pending = true
+			if not supervised:
+				GameState.modify_stat("affection", -5)
+			GameState.modify_stat("court_suspicion", 6)
+			block["notes"].append("Colapso por agotamiento: la Doctora Helena atendió a %s%s. Entra en Agotamiento (+6 Sospecha)." % [daughter, (" (-%d G)" % fee) if fee > 0 else ""])
 			Chronicle.record_event("stress_collapse", "Colapso por agotamiento",
-				"%s cayó rendida tras acumular demasiado estrés. La Doctora Helena la cuidó sin hacer preguntas." % daughter, "family", 4)
+				"%s cayó rendida tras acumular demasiado estrés. Entró en estado de Agotamiento." % daughter, "family", 4)
 			collapsed = false
 		block["activity_id"] = act["id"]
 		block["name"] = act["name"]
 		executed_ids.append(act["id"])
 
-		# Cobro / paga (empleos urbanos con bono de bimestre; recitales con bono de sinergia)
+		if GameState.exhausted_sick and act["id"] in ["rest_manor", "rest_springs", "job_sanatorium"]:
+			GameState.exhausted_sick = false
+			block["notes"].append("Recuperación: %s supera el estado de Agotamiento." % daughter)
+
+		# Cobro / paga (empleos urbanos con bono de bimestre; recitales con bono de sinergia; prueba práctica)
 		var money: int = _activity_gold(act)
+		if money > 0 and act["id"] == pending_practical_act and pending_practical_bonus > 0.0:
+			money = int(round(float(money) * (1.0 + pending_practical_bonus)))
 		if money != 0:
 			GameState.modify_gold(money)
 		block["gold"] = money
+		if act["id"] == pending_practical_act and pending_practical_bonus > 0.0:
+			block["notes"].append("✦ Desempeño brillante en la prueba práctica (+%d%% ganancia)." % int(round(pending_practical_bonus * 100.0)))
 
-		# Estrés base y variación de Sello de la actividad
-		var stress_applied: int = GameState.modify_stat("stress", int(act["stress"]))
+		# Estrés ajustado por mutaciones/vestuario y variación de Sello de la actividad
+		var stress_applied: int = GameState.modify_stat("stress", _activity_stress(act))
 		block["stress_delta"] = stress_applied
 		var seal_applied: int = 0
 		if int(act.get("seal_delta", 0)) != 0:
 			seal_applied = GameState.modify_stat("seal_integrity", int(act["seal_delta"]))
 		block["seal_delta"] = seal_applied
+
+		if act["id"] == "job_canals":
+			if GameState.has_mutation("paso_de_luz"):
+				block["notes"].append("Paso de Luz oculta vuestro rastro en los canales (+0 Sospecha).")
+			else:
+				GameState.modify_stat("court_suspicion", 12)
+				block["notes"].append("Patrullas del Senado: +12 Sospecha por tráfico nocturno.")
 
 		# Ganancias de atributos con multiplicadores
 		var fac_key: String = str(act.get("facility_bonus", ""))
@@ -212,10 +247,11 @@ func resolve_bimester() -> Dictionary:
 				else:
 					stung_activity = str(act["id"])
 
-		# Botín ocasional
+		# Botín ocasional (+12% con Paradoja Menor)
 		if act.has("loot_item"):
 			var rng_loot := GameState.det_rng("loot", i)
-			if rng_loot.randi_range(1, 100) <= int(act.get("loot_chance", 0)):
+			var loot_p: int = int(act.get("loot_chance", 0)) + (12 if GameState.has_mutation("paradoja_menor") else 0)
+			if rng_loot.randi_range(1, 100) <= loot_p:
 				var item_id: String = str(act["loot_item"])
 				GameState.materials_inventory[item_id] = int(GameState.materials_inventory.get(item_id, 0)) + 1
 				block["notes"].append("Hallazgo: +1 %s." % CatalogDB.get_material(item_id).get("name", item_id))
@@ -243,9 +279,17 @@ func resolve_bimester() -> Dictionary:
 	father_plan.clear()
 
 	# --- 4. MANTENIMIENTO Y AVANCE DE CALENDARIO -----------------------------
+	if GameState.stress >= STRESS_SICK_THRESHOLD and not GameState.exhausted_sick:
+		GameState.exhausted_sick = true
+		GameState.sick_dialogue_pending = true
+		Chronicle.record_event("exhausted_sick_trigger", "Agotamiento Crítico",
+			"%s alcanzó el límite de fatiga (Estrés %d). Las clases quedaron suspendidas hasta su recuperación." % [daughter, GameState.stress], "family", 4)
+	var goal_hit: Dictionary = GameState.check_annual_goal_progress()
 	GameState.end_batch()
 	var adv: Dictionary = TimeManager.advance_bimester()
 	report["upkeep"] = adv["upkeep"]
+	if bool(goal_hit.get("completed_now", false)):
+		(report["upkeep"] as Array).append("✦ Objetivo Anual Cumplido (%s): +100 G y +8 Afecto." % str(goal_hit["title"]))
 	if int(adv["year_completed"]) > 0:
 		ExplorationCombat.reset_year_flags()
 		report["year_end"] = Chronicle.assemble_annual_letter(int(adv["year_completed"]))
@@ -256,6 +300,10 @@ func resolve_bimester() -> Dictionary:
 	report["summary"] = _diff_snapshot(before, _snapshot())
 	report["new_turn"] = TimeManager.current_total_turn
 	astrolabe_tuned_this_bimester = false
+	school_minigame_used_this_bimester = false
+	pending_practical_act = ""
+	pending_practical_bonus = 0.0
+	GameState.clinic_tonic_used = false
 	SaveManager.autosave()
 	plan_changed.emit()
 	return report
@@ -279,7 +327,19 @@ func preview_block(act_id: String) -> Dictionary:
 			var main_bonus: int = fac_bonus if base_v >= 15 else 0
 			v = int(round(float(scaled_base(sk, base_v) + main_bonus) * _gain_multiplier(sk, act, is_supervised(), false, false)))
 		gains.append({"stat": sk, "label": GameState.get_stat_label(sk), "value": v})
-	return {"gold": _activity_gold(act), "stress": int(act["stress"]), "seal_delta": int(act.get("seal_delta", 0)), "gains": gains}
+	return {"gold": _activity_gold(act), "stress": _activity_stress(act), "seal_delta": int(act.get("seal_delta", 0)), "gains": gains}
+
+func _activity_stress(act: Dictionary) -> int:
+	var st: int = int(act["stress"])
+	if st <= 0:
+		return st
+	if act["category"] == "job":
+		if GameState.has_mutation("sangre_pesada"):
+			st = maxi(1, int(round(float(st) * 0.50)))
+		var red: float = GameState.get_outfit_mod("job_stress_red", 0.0)
+		if red > 0.0:
+			st = maxi(1, int(round(float(st) * (1.0 - red))))
+	return st
 
 ## Valor base de una ganancia de actividad tras el factor de balance (solo atributos 0-1200).
 func scaled_base(stat_key: String, value: int) -> int:
@@ -311,17 +371,47 @@ func _gain_multiplier(stat_key: String, act: Dictionary, supervised: bool, inspi
 		if GameState.has_trait_prefix("Orgullo del Hogar"):
 			m += 0.20
 	m += TimeManager.get_gain_bonus(stat_key)
-	if GameState.unlocked_synergies.has("horizon_valkyrie") and CatalogDB.MARTIAL_IDS.has(act["id"]):
-		m += 0.20
-	if GameState.unlocked_synergies.has("ephemeris_weaver") and CatalogDB.ASTRAL_STUDY_IDS.has(act["id"]):
-		m += 0.25
+	m += GameState.get_mood_activity_mod(str(act["id"]))
+	if CatalogDB.MARTIAL_IDS.has(act["id"]):
+		m += GameState.get_outfit_mod("martial_pct", 0.0)
+		if GameState.unlocked_synergies.has("horizon_valkyrie"):
+			m += 0.20
+	if CatalogDB.ASTRAL_STUDY_IDS.has(act["id"]):
+		m += GameState.get_outfit_mod("astral_pct", 0.0)
+		if GameState.unlocked_synergies.has("ephemeris_weaver"):
+			m += 0.25
+	if act["id"] in ["class_conservatory", "job_amphitheater"]:
+		m += GameState.get_outfit_mod("court_pct", 0.0)
+	if GameState.has_mutation("pulso_cristalino") and act["id"] in ["class_astrolabe", "job_clockwork"]:
+		m += 0.15
+	if GameState.has_mutation("sangre_pesada") and act["id"] == "class_conservatory" and GameState.equipped_outfit != "gala":
+		m -= 0.10
 	if inspired:
 		m += 0.20
 	if stung:
 		m += 0.35
+	if str(act.get("id", "")) == pending_practical_act and pending_practical_bonus > 0.0:
+		m += pending_practical_bonus
 	if GameState.stress >= STRESS_FATIGUE_THRESHOLD:
 		m -= 0.25
 	return maxf(m, 0.3)
+
+## Devuelve si alguna clase dura o trabajo práctico de la agenda actual dispara una prueba interactiva.
+func find_practical_challenge() -> Dictionary:
+	for aid in agenda:
+		if aid in ["job_caravan", "job_canals"]:
+			var a := CatalogDB.get_activity(aid)
+			return {"act_id": aid, "mode": "fencing", "title": "GUARDIA EN RUTA: %s" % str(a.get("name", aid)).to_upper()}
+		if aid == "job_amphitheater":
+			var a := CatalogDB.get_activity(aid)
+			return {"act_id": aid, "mode": "rhythm", "title": "GALA EN ESCENA: %s" % str(a.get("name", aid)).to_upper()}
+	if (TimeManager.current_total_turn % 2) == 1:
+		for aid in agenda:
+			if aid == "class_armory":
+				return {"act_id": aid, "mode": "fencing", "title": "EVALUACIÓN DE ACADEMIA: DUELO DE ESGRIMA"}
+			if aid == "class_conservatory":
+				return {"act_id": aid, "mode": "rhythm", "title": "EXAMEN DEL CONSERVATORIO: ARMONIZACIÓN"}
+	return {}
 
 func _apply_father_task(task_id: String) -> Dictionary:
 	var t: Dictionary = CatalogDB.get_father_task(task_id)
@@ -415,7 +505,7 @@ func _micro_event_matches(req: Dictionary, act: Dictionary) -> bool:
 const _SNAPSHOT_KEYS: Array[String] = [
 	"gold", "stress", "affection", "human_anchor", "seal_integrity", "abyssal_sync", "astral_saturation",
 	"temple", "destreza", "erudicion", "gracia", "magnetismo", "luminiscencia", "gravedad", "resonancia", "entropia",
-	"moralidad", "devocion", "seal_investigation", "father_reputation"
+	"moralidad", "devocion", "seal_investigation", "father_reputation", "court_suspicion"
 ]
 
 func _snapshot() -> Dictionary:
@@ -436,7 +526,7 @@ func _diff_snapshot(a: Dictionary, b: Dictionary) -> Array:
 # GUARDADO
 # ------------------------------------------------------------------------------
 func serialize() -> Dictionary:
-	return {"agenda": agenda.duplicate(), "father_plan": father_plan.duplicate(), "astrolabe_tuned": astrolabe_tuned_this_bimester}
+	return {"agenda": agenda.duplicate(), "father_plan": father_plan.duplicate(), "astrolabe_tuned": astrolabe_tuned_this_bimester, "school_minigame_used": school_minigame_used_this_bimester}
 
 func deserialize(d: Dictionary) -> void:
 	agenda = ["class_armory", "class_astrolabe", "rest_manor"]
@@ -449,4 +539,5 @@ func deserialize(d: Dictionary) -> void:
 		if not CatalogDB.get_father_task(str(t)).is_empty():
 			father_plan.append(str(t))
 	astrolabe_tuned_this_bimester = bool(d.get("astrolabe_tuned", false))
+	school_minigame_used_this_bimester = bool(d.get("school_minigame_used", false))
 	plan_changed.emit()

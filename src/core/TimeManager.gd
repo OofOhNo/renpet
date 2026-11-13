@@ -130,7 +130,14 @@ func advance_bimester() -> Dictionary:
 		return result
 
 	result["upkeep"] = apply_bimester_upkeep()
+	GameState.recalculate_derived_stats()
 	GameState.father_energy = GameState.father_max_energy
+	GameState.active_vacation_bg = ""
+	if GameState.assimilated_this_bimester:
+		GameState.consecutive_assimilations += 1
+	else:
+		GameState.consecutive_assimilations = 0
+	GameState.assimilated_this_bimester = false
 
 	var finished_year: int = current_year
 	var is_last_turn: bool = current_total_turn >= TOTAL_TURNS
@@ -154,6 +161,7 @@ func advance_bimester() -> Dictionary:
 		current_bimester = 1
 		current_year += 1
 		GameState.age = current_year
+		GameState.roll_annual_goal_for_year(current_year)
 		result["year_completed"] = finished_year
 		year_completed.emit(finished_year)
 		father_times_stayed_home_this_year = 0
@@ -204,6 +212,18 @@ func apply_bimester_upkeep() -> Array[String]:
 	# Metabolismo astral y efectos de la saturación
 	for l in CrucibleManager.apply_bimester_decay():
 		lines.append(l)
+
+	# Gala Real alivia sospecha; Sello débil o canales la elevan
+	var gala_rel: int = int(round(GameState.get_outfit_mod("suspicion_relief", 0.0)))
+	if gala_rel > 0 and GameState.court_suspicion > 0:
+		var drop: int = -GameState.modify_stat("court_suspicion", -gala_rel)
+		if drop > 0:
+			lines.append("La Gala Real de Alabastro disipa sospechas en la Corte (-%d Sospecha)." % drop)
+	if GameState.seal_integrity < 60:
+		var leak: int = 8 if GameState.seal_integrity < 40 else 5
+		var added_s: int = GameState.modify_stat("court_suspicion", leak)
+		if added_s > 0:
+			lines.append("Las grietas del resguardo despiertan rumores en el Senado (+%d Sospecha)." % added_s)
 
 	GameState.end_batch()
 	return lines

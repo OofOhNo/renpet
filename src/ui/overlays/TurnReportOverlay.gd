@@ -12,7 +12,17 @@ func show_report(report: Dictionary) -> void:
 
 		var father: Array = report["father"]
 		if not father.is_empty():
-			content.add_child(_section("El Padre", [AstralTheme.G_ANKH]))
+			var fh := AstralTheme.hbox(10)
+			var f_tex: Texture2D = AstralTheme.load_tex("res://assets/art/father_portrait.png")
+			if f_tex != null:
+				var f_rect := TextureRect.new()
+				f_rect.texture = f_tex
+				f_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				f_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				f_rect.custom_minimum_size = Vector2(44, 56)
+				fh.add_child(f_rect)
+			fh.add_child(_section("El Padre", [AstralTheme.G_ANKH]))
+			content.add_child(fh)
 			for f in father:
 				content.add_child(_line_card("%s  %s" % [f["icon"], f["name"]], str(f["text"]), AstralTheme.TURQ))
 
@@ -77,21 +87,38 @@ func _line_card(title: String, text: String, color: Color) -> Control:
 
 func _block_card(b: Dictionary) -> Control:
 	var card := AstralTheme.panel("CardPanel")
-	var v := AstralTheme.vbox(6)
+	var v := AstralTheme.vbox(8)
 	card.add_child(v)
 	var days: String = "Días %d a %d" % [(int(b["index"]) - 1) * 20 + 1, int(b["index"]) * 20]
-	v.add_child(AstralTheme.label("%s  Decano %d  ·  %s  ·  %s" % [AstralTheme.G_STAR, int(b["index"]), days, b["name"]], "SubLabel", null, true))
-	var chips: Array[String] = []
+	var head_h := AstralTheme.hbox(10)
+	v.add_child(head_h)
+	var act_id: String = str(b.get("activity_id", ""))
+	var act_cat: String = str(CatalogDB.get_activity(act_id).get("category", "class"))
+	var bvign := AstralTheme.vignette_card(CatalogDB.get_activity_illustration(act_id, act_cat), Vector2(92, 52), AstralTheme.GOLD_DARK)
+	bvign.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head_h.add_child(bvign)
+	var hv := AstralTheme.vbox(2)
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head_h.add_child(hv)
+	hv.add_child(AstralTheme.label("Decano %d · %s" % [int(b["index"]), str(b["name"])], "SubLabel", AstralTheme.GOLD_PALE, true))
+	hv.add_child(AstralTheme.label(days, "CaptionLabel", AstralTheme.MUTED))
+
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 8)
+	flow.add_theme_constant_override("v_separation", 6)
+	v.add_child(flow)
 	var money: int = int(b["gold"])
 	if money != 0:
-		chips.append(AstralTheme.colored("%s G" % AstralTheme.signed(money), AstralTheme.GOLD if money > 0 else AstralTheme.EMBER))
+		flow.add_child(AstralTheme.chip("%s G" % AstralTheme.signed(money), AstralTheme.GOLD_PALE if money > 0 else AstralTheme.EMBER, AstralTheme.GOLD if money > 0 else AstralTheme.EMBER, 13))
 	for g in b["gains"]:
-		chips.append(AstralTheme.colored("%s %s" % [g["label"], AstralTheme.signed(int(g["delta"]))], AstralTheme.GOOD if int(g["delta"]) > 0 else AstralTheme.BAD))
+		var dv: int = int(g["delta"])
+		flow.add_child(AstralTheme.chip("%s %s" % [g["label"], AstralTheme.signed(dv)], AstralTheme.GOOD if dv > 0 else AstralTheme.BAD, null, 13))
 	if int(b["seal_delta"]) != 0:
-		chips.append(AstralTheme.colored("%s %s%%" % [GameState.get_stat_label("seal_integrity"), AstralTheme.signed(int(b["seal_delta"]))], AstralTheme.GOOD if int(b["seal_delta"]) > 0 else AstralTheme.BAD))
+		var sd: int = int(b["seal_delta"])
+		flow.add_child(AstralTheme.chip("%s %s%%" % [GameState.get_stat_label("seal_integrity"), AstralTheme.signed(sd)], AstralTheme.GOOD if sd > 0 else AstralTheme.BAD, null, 13))
 	var st: int = int(b["stress_delta"])
-	chips.append(AstralTheme.colored("Estrés %s" % AstralTheme.signed(st), AstralTheme.BAD if st > 0 else AstralTheme.GOOD))
-	v.add_child(AstralTheme.rich("  ·  ".join(chips)))
+	flow.add_child(AstralTheme.chip("Estrés %s" % AstralTheme.signed(st), AstralTheme.BAD if st > 0 else AstralTheme.GOOD, null, 13))
 	for n in b["notes"]:
 		v.add_child(AstralTheme.label(AstralTheme.G_STAR2 + "  " + str(n), "CaptionLabel", AstralTheme.GOLD_PALE, true))
 	if b.has("clash"):

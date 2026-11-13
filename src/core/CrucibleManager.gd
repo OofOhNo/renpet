@@ -6,7 +6,7 @@ extends Node
 ##  - Saturación >= 60: el cuerpo absorbe peor (70% de los atributos). >= 85: 40% y daño extra al Sello.
 ##  - Pasarse de 100 provoca una Sobrecarga Astral (requiere confirmación).
 ##  - Mejorar el Crisol de la mansión reduce la saturación generada y acelera su disipación.
-##  - El bazar de Zahir el Nómada solo abre en bimestres pares; algunos objetos exigen reputación paterna.
+##  - El puesto de Zahir el Nómada atiende siempre en los Acueductos y ofrece -15% extra en bimestres pares; algunos objetos exigen reputación paterna.
 
 signal crucible_changed()
 
@@ -43,7 +43,12 @@ func get_saturation_gain(mat: Dictionary) -> int:
 	var base: int = int(mat.get("saturation", 0))
 	if base <= 0:
 		return 0
-	return maxi(4, base - 2 * (get_crucible_level() - 1))
+	var red: int = 2 * (get_crucible_level() - 1)
+	var after: int = maxi(4, base - red)
+	var outfit_red: float = GameState.get_outfit_mod("sat_reduction", 0.0)
+	if outfit_red > 0.0:
+		after = maxi(3, int(round(float(after) * (1.0 - outfit_red))))
+	return after
 
 func get_purify_cost() -> int:
 	return maxi(40, PURIFY_COST - 8 * (get_crucible_level() - 1))
@@ -52,8 +57,10 @@ func get_distill_cost() -> int:
 	return DISTILL_COST_ARTIFICER if GameState.unlocked_synergies.has("solar_artificer") else DISTILL_COST
 
 func get_material_price(mat: Dictionary) -> int:
-	# La reputación paterna da hasta un 15% de descuento en el bazar.
+	# La reputación paterna da hasta un 15% de descuento; en bimestres pares Zahir suma 15% por Feria Nocturna.
 	var discount: float = clampf(float(GameState.father_reputation) * 0.0015, 0.0, 0.15)
+	if TimeManager != null and TimeManager.is_bazaar_open():
+		discount += 0.15
 	return int(round(float(mat["price"]) * (1.0 - discount)))
 
 ## Vista previa antes de asimilar (efectos reales sobre atributos, Sello y Saturación)
@@ -132,6 +139,11 @@ func assimilate(material_id: String, confirm_overload: bool = false) -> Dictiona
 
 	var mut_id: String = str(p["mutation_id"])
 	var new_mut: bool = mut_id != "" and GameState.add_mutation(mut_id)
+	var susp_delta: int = 14 if overload_happened else 8
+	GameState.modify_stat("court_suspicion", susp_delta)
+	if GameState.consecutive_assimilations >= 1 or GameState.astral_saturation >= 70 or overload_happened:
+		GameState.pending_astral_crisis = true
+	GameState.assimilated_this_bimester = true
 	GameState.end_batch()
 
 	Chronicle.record_event("crucible_" + material_id, "Asimilación en el Crisol: " + str(mat["name"]),
@@ -145,8 +157,6 @@ func buy_material(material_id: String) -> Dictionary:
 	var mat: Dictionary = CatalogDB.get_material(material_id)
 	if mat.is_empty():
 		return {"ok": false, "msg": "Material desconocido."}
-	if not TimeManager.is_bazaar_open():
-		return {"ok": false, "msg": "Zahir el Nómada solo acampa en el Bazar de Medianoche en los bimestres pares. Mientras tanto puedes destilar reliquias."}
 	var need_rep: int = int(mat.get("exclusive_rep", 0))
 	if GameState.father_reputation < need_rep:
 		return {"ok": false, "msg": "Zahir solo vende «%s» a quienes tienen %d de Reputación Paterna (tienes %d). La Diplomacia del Padre la aumenta." % [mat["name"], need_rep, GameState.father_reputation]}

@@ -81,6 +81,19 @@ func _draw() -> void:
 			var a_col := Color(AstralTheme.GOLD_PALE.r, AstralTheme.GOLD_PALE.g, AstralTheme.GOLD_PALE.b, 0.07 + 0.04 * sin(_time * 0.7 + float(lk.x)))
 			draw_line(Vector2(pa.x * size.x, pa.y * size.y), Vector2(pb.x * size.x, pb.y * size.y), a_col, 1.0)
 
+	# Velos de nebulosa cósmica suave en movimiento lento
+	var neb_defs: Array = [
+		[Vector2(0.24 + 0.03 * sin(_time * 0.13), 0.26), 0.26, Color(0.22, 0.62, 0.74, 0.045)],
+		[Vector2(0.76 - 0.03 * cos(_time * 0.11), 0.34), 0.30, Color(0.56, 0.34, 0.86, 0.048)],
+		[Vector2(0.52 + 0.02 * sin(_time * 0.16), 0.72), 0.28, Color(0.86, 0.68, 0.32, 0.032)]
+	]
+	for nd in neb_defs:
+		var npos := Vector2((nd[0] as Vector2).x * size.x, (nd[0] as Vector2).y * size.y)
+		var nr: float = float(nd[1]) * minf(size.x, size.y)
+		var nc: Color = nd[2]
+		draw_circle(npos, nr, nc)
+		draw_circle(npos, nr * 0.56, Color(nc.r, nc.g, nc.b, nc.a * 1.25))
+
 	for s in _stars:
 		var pos: Vector2 = Vector2((s["p"] as Vector2).x * size.x, (s["p"] as Vector2).y * size.y)
 		var tw: float = 0.5 + 0.5 * sin(_time * float(s["speed"]) + float(s["phase"]))

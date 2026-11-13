@@ -5,6 +5,7 @@ class_name ExecutionOverlay
 ## Visualiza el giro del astrolabio, el avance de los días y las ganancias de cada Decano sin paredes de texto.
 
 signal sequence_finished()
+signal report_requested(report: Dictionary)
 
 class _DialCanvas extends Control:
 	var progress: float = 0.0
@@ -66,6 +67,14 @@ class _DialCanvas extends Control:
 		draw_circle(orb_pos, 11.0 + flare * 4.0, Color(0.98, 0.85, 0.46, 0.35))
 		draw_circle(orb_pos, 6.2, Color(1.0, 0.95, 0.76, 1.0))
 
+		# Destello radial y chispas al completar cada Decano
+		if flare > 0.02:
+			for k in range(12):
+				var fa: float = float(k) * (TAU / 12.0) + pulse_time * 0.9
+				var r0: float = r_in * 1.15
+				var r1: float = r_out * (1.02 + flare * 0.22)
+				draw_line(c + Vector2.from_angle(fa) * r0, c + Vector2.from_angle(fa) * r1, Color(1.0, 0.88, 0.50, flare * 0.48), 2.0, true)
+
 		# Núcleo del observatorio
 		var core_r: float = 9.0 + sin(pulse_time * 4.0) * 1.5
 		draw_circle(c, core_r + 5.0, Color(0.32, 0.78, 0.74, 0.25))
@@ -80,6 +89,10 @@ var _father_row: HBoxContainer
 var _cards_row: HBoxContainer
 var _cards: Array[PanelContainer] = []
 var _skip_btn: Button
+var _details_btn: Button
+var _continue_btn: Button
+var _summary_flow: HFlowContainer
+var _last_report: Dictionary = {}
 var _tween: Tween
 var _active_anim: bool = false
 var _finished_once: bool = false
@@ -125,13 +138,29 @@ func _build_ui() -> void:
 	_cards_row = AstralTheme.hbox(12)
 	content.add_child(_cards_row)
 
+	_summary_flow = HFlowContainer.new()
+	_summary_flow.add_theme_constant_override("h_separation", 8)
+	_summary_flow.add_theme_constant_override("v_separation", 6)
+	_summary_flow.visible = false
+	content.add_child(_summary_flow)
+
 	var foot := AstralTheme.hbox(10)
 	foot.alignment = BoxContainer.ALIGNMENT_END
 	content.add_child(foot)
 	_skip_btn = AstralTheme.button("Saltar animación  →", "TabLikeButton")
 	_skip_btn.custom_minimum_size = Vector2(210, 44)
-	_skip_btn.pressed.connect(_finish_sequence)
+	_skip_btn.pressed.connect(_skip_to_summary)
 	foot.add_child(_skip_btn)
+	_details_btn = AstralTheme.button("Ver Crónica Detallada", "")
+	_details_btn.custom_minimum_size = Vector2(220, 46)
+	_details_btn.visible = false
+	_details_btn.pressed.connect(_open_detailed_report)
+	foot.add_child(_details_btn)
+	_continue_btn = AstralTheme.button("Continuar  ▶", "PrimaryButton")
+	_continue_btn.custom_minimum_size = Vector2(210, 46)
+	_continue_btn.visible = false
+	_continue_btn.pressed.connect(_finish_sequence)
+	foot.add_child(_continue_btn)
 
 func _make_ring(path: String, tint: Color, sz: float) -> TextureRect:
 	var t := TextureRect.new()
@@ -169,6 +198,7 @@ func _process(delta: float) -> void:
 			_dial.comet_trail.pop_front()
 
 func play_bimester(rep: Dictionary) -> void:
+	_last_report = rep
 	if DisplayServer.get_name() == "headless":
 		hide_overlay()
 		call_deferred("emit_signal", "sequence_finished")
@@ -190,11 +220,20 @@ func play_bimester(rep: Dictionary) -> void:
 	_day_lbl.text = "Día 1 / 60"
 	_build_father_chips(rep.get("father", []))
 	_build_decano_cards(rep.get("blocks", []))
+	_build_summary_chips(rep)
+	_summary_flow.visible = false
+	_skip_btn.visible = true
+	_details_btn.visible = false
+	_continue_btn.visible = false
 
 	show_overlay()
 	_fit()
 	_center_rings(_dial.get_parent() as Control)
 	AstralAudio.play_turn_end()
+
+	var step_sec: float = 0.24 if SettingsManager.short_turn_anim else 0.56
+	var gap_sec: float = 0.05 if SettingsManager.short_turn_anim else 0.14
+	var end_sec: float = 0.12 if SettingsManager.short_turn_anim else 0.30
 
 	_tween = create_tween()
 	var blocks: Array = rep.get("blocks", [])
@@ -207,13 +246,13 @@ func play_bimester(rep: Dictionary) -> void:
 			_dial.progress = v
 			var day: int = clampi(int(round(v * 60.0)), 1, 60)
 			_day_lbl.text = "Día %d / 60   ·   Decano %d" % [day, idx + 1]
-		, float(i) / 3.0, target_p, 0.58).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		_tween.tween_interval(0.14)
+		, float(i) / 3.0, target_p, step_sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_tween.tween_interval(gap_sec)
 	_tween.tween_callback(func() -> void:
 		_dial.flare = 1.0
 		AstralAudio.play_confirm())
-	_tween.tween_interval(0.32)
-	_tween.tween_callback(_finish_sequence)
+	_tween.tween_interval(end_sec)
+	_tween.tween_callback(_on_anim_complete)
 
 func _build_father_chips(father_items: Array) -> void:
 	for c in _father_row.get_children():
@@ -239,10 +278,13 @@ func _build_decano_cards(blocks: Array) -> void:
 		var b: Dictionary = blocks[i] if i < blocks.size() else {}
 		var card := AstralTheme.panel("CardPanel")
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.custom_minimum_size = Vector2(240, 144)
+		card.custom_minimum_size = Vector2(240, 178)
 		card.modulate = Color(1, 1, 1, 0.24)
 		var v := AstralTheme.vbox(6)
 		card.add_child(v)
+		var aid: String = str(b.get("activity_id", ""))
+		var act_cat: String = str(CatalogDB.get_activity(aid).get("category", "class"))
+		v.add_child(AstralTheme.scenic_banner(CatalogDB.get_activity_illustration(aid, act_cat), 68.0, Color(1, 1, 1, 0.92)))
 		v.add_child(AstralTheme.label("DECANO %d  (%s)" % [i + 1, ranges[i]], "CaptionLabel", AstralTheme.MUTED))
 		v.add_child(AstralTheme.label(str(b.get("name", "Actividad")), "SubLabel", AstralTheme.GOLD_PALE, true))
 		v.add_child(AstralTheme.separator())
@@ -295,10 +337,64 @@ func _activate_decano(idx: int, _block_data: Dictionary) -> void:
 	if idx >= 0 and idx < _cards.size():
 		var card: PanelContainer = _cards[idx]
 		card.theme_type_variation = "GlowPanel"
-		var tw := create_tween()
+		card.pivot_offset = card.size * 0.5
+		card.scale = Vector2(1.04, 1.04)
+		var tw := create_tween().set_parallel(true)
 		tw.tween_property(card, "modulate", Color.WHITE, 0.24)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK)
 		for prev_i in range(idx):
 			_cards[prev_i].theme_type_variation = "CardPanel"
+
+func _build_summary_chips(rep: Dictionary) -> void:
+	for c in _summary_flow.get_children():
+		c.queue_free()
+	var syn: Array = rep.get("synergies", [])
+	for s in syn:
+		_summary_flow.add_child(_delta_badge("%s Sinergia: %s" % [AstralTheme.G_FLEUR, str(s.get("title", ""))], AstralTheme.GOLD))
+	for s in rep.get("summary", []):
+		var d: int = int(s.get("delta", 0))
+		if d == 0:
+			continue
+		var sk: String = str(s.get("stat", ""))
+		var bad_up: bool = (sk == "stress" or sk == "entropia" or sk == "astral_saturation" or sk == "court_suspicion")
+		var good: bool = (d > 0) != bad_up
+		_summary_flow.add_child(_delta_badge("%s %s" % [str(s.get("label", sk)), AstralTheme.signed(d)], AstralTheme.GOOD if good else AstralTheme.BAD))
+	var g_st: Dictionary = GameState.get_annual_goal_status()
+	if not g_st.is_empty():
+		var g_lbl: String = "Meta Anual ✓ %s" % str(g_st["title"]) if bool(g_st["completed"]) else "Meta Anual: %s (%d/%d)" % [str(g_st["title"]), int(g_st["current"]), int(g_st["target"])]
+		_summary_flow.add_child(_delta_badge(g_lbl, AstralTheme.GOOD if bool(g_st["completed"]) else AstralTheme.TURQ))
+
+func _skip_to_summary() -> void:
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	_dial.progress = 1.0
+	_dial.active_decano = 2
+	_dial.flare = 0.8
+	_day_lbl.text = "Día 60 / 60   ·   Completado"
+	for c in _cards:
+		c.modulate = Color.WHITE
+		c.theme_type_variation = "CardPanel"
+	if not _cards.is_empty():
+		_cards[_cards.size() - 1].theme_type_variation = "GlowPanel"
+	_on_anim_complete()
+
+func _on_anim_complete() -> void:
+	_active_anim = false
+	_day_lbl.text = "Día 60 / 60   ·   Balance del Bimestre"
+	if not SettingsManager.unified_turn_end:
+		_finish_sequence()
+		report_requested.emit(_last_report)
+		return
+	_skip_btn.visible = false
+	_summary_flow.visible = _summary_flow.get_child_count() > 0
+	_details_btn.visible = true
+	_continue_btn.visible = true
+	_fit()
+
+func _open_detailed_report() -> void:
+	var r: Dictionary = _last_report
+	_finish_sequence()
+	report_requested.emit(r)
 
 func _finish_sequence() -> void:
 	if _finished_once:

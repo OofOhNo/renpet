@@ -22,6 +22,8 @@ func show_story_event(ev: Dictionary) -> void:
 
 	set_panel_width(980)
 	rebuild(func() -> void:
+		var ban_path: String = "res://assets/art/bg_zone_crater.png" if is_twist else "res://assets/art/bg_manor_observatory.png"
+		content.add_child(AstralTheme.scenic_banner(ban_path, 112.0, Color(1, 1, 1, 0.92)))
 		var head := AstralTheme.hbox(14)
 		var icon := TextureRect.new()
 		icon.texture = load("res://assets/ui/seal_medallion_cracked.png" if is_twist else "res://assets/ui/seal_medallion_intact.png")
@@ -44,27 +46,67 @@ func show_story_event(ev: Dictionary) -> void:
 		var nar := AstralTheme.rich("[font_size=21]%s[/font_size]" % body_txt, 140)
 		content.add_child(nar)
 
-		content.add_child(AstralTheme.label("Tu respuesta ante el destino:", "SubLabel", AstralTheme.GOLD_PALE))
+		var head_row := HBoxContainer.new()
+		head_row.add_theme_constant_override("separation", 12)
+		head_row.add_child(AstralTheme.icon_box("res://assets/art/father_portrait.png", Vector2(58, 70), Color.WHITE, "CardPanel"))
+		head_row.add_child(AstralTheme.icon_box(GameState.get_active_portrait_path(), Vector2(58, 70), Color.WHITE, "GlowPanel"))
+		var prompt_lbl := AstralTheme.label("Tu respuesta ante el destino:", "SubLabel", AstralTheme.GOLD_PALE)
+		prompt_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head_row.add_child(prompt_lbl)
+		content.add_child(head_row)
+
 		for ch in choices:
 			var d: Dictionary = ch
-			var b := AstralTheme.button(str(d.get("label", "Decidir")), "PrimaryButton" if is_twist else "")
-			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			b.custom_minimum_size.y = 62
+			var lbl_txt: String = str(d.get("label", "Decidir"))
+			var req_s: String = str(d.get("req_stat", ""))
+			var vname: String = "PrimaryButton" if (is_twist or bool(d.get("is_ng_echo", false))) else ""
+			var b := AstralTheme.button("", vname)
+			b.custom_minimum_size.y = 64
+			var mg := MarginContainer.new()
+			mg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			mg.add_theme_constant_override("margin_left", 14)
+			mg.add_theme_constant_override("margin_right", 14)
+			mg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			b.add_child(mg)
+			var ch_h := AstralTheme.hbox(10)
+			ch_h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			mg.add_child(ch_h)
+			var main_lbl := AstralTheme.label(lbl_txt, "", AstralTheme.IVORY, true)
+			main_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			main_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			main_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			ch_h.add_child(main_lbl)
+			if req_s != "":
+				var req_v: int = int(d.get("req_val", 0))
+				var cur_v: int = GameState.get_stat(req_s)
+				var sname: String = GameState.get_stat_label(req_s)
+				var ok: bool = cur_v >= req_v
+				var tag_t: String = "%s %s %d/%d" % [AstralTheme.G_CHECK if ok else AstralTheme.G_CROSS, sname, cur_v, req_v]
+				var badge := AstralTheme.chip(tag_t, AstralTheme.GOOD if ok else AstralTheme.EMBER, null, 13)
+				badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				ch_h.add_child(badge)
 			b.pressed.connect(func() -> void: _on_choose(d, title, is_twist))
 			content.add_child(b))
 	show_overlay()
 
 func _on_choose(choice: Dictionary, title: String, is_twist: bool) -> void:
+	var req_s: String = str(choice.get("req_stat", ""))
+	var req_v: int = int(choice.get("req_val", 0))
+	var had_check: bool = req_s != ""
+	var passed: bool = true if not had_check else (GameState.get_stat(req_s) >= req_v)
 	var summary_effects: String = ExplorationCombat.apply_story_event_choice(_act_id, choice)
-	var outcome: String = str(choice.get("outcome", ""))
+	var outcome: String = str(choice.get("outcome", "")) if passed else str(choice.get("outcome_fail", choice.get("outcome", "")))
 
 	rebuild(func() -> void:
 		content.add_child(AstralTheme.label(title, "HeadingLabel", AstralTheme.ROSE if is_twist else AstralTheme.GOLD, true))
 		content.add_child(AstralTheme.separator())
+		if had_check:
+			var chk_txt: String = ("✓ PRUEBA DE %s SUPERADA" % GameState.get_stat_label(req_s).to_upper()) if passed else ("✕ PRUEBA DE %s FALLIDA" % GameState.get_stat_label(req_s).to_upper())
+			content.add_child(AstralTheme.label(chk_txt, "SubLabel", AstralTheme.GOOD if passed else AstralTheme.EMBER, true))
 		content.add_child(AstralTheme.rich("[font_size=21]%s[/font_size]" % outcome, 90))
 		if summary_effects != "":
-			content.add_child(AstralTheme.label("Consecuencias: %s" % summary_effects, "SubLabel", AstralTheme.GOOD, true))
+			content.add_child(AstralTheme.label("Consecuencias: %s" % summary_effects, "SubLabel", AstralTheme.GOOD if passed else AstralTheme.EMBER, true))
 		var b := AstralTheme.button("Continuar  ▶", "PrimaryButton")
 		b.custom_minimum_size.y = 54
 		b.pressed.connect(func() -> void:

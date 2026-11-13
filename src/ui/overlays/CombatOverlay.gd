@@ -7,7 +7,48 @@ class_name CombatOverlay
 
 signal expedition_ended(victory: bool, summary: String)
 
+class _ShockBurst extends Control:
+	var col := Color(0.95, 0.80, 0.40, 1.0)
+	var _t: float = 0.0
+	var _dur: float = 0.36
+	var _sparks: Array[Dictionary] = []
+
+	func _init(p_col: Color, is_heavy: bool = false) -> void:
+		col = p_col
+		_dur = 0.46 if is_heavy else 0.32
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		custom_minimum_size = Vector2(180, 180)
+		size = Vector2(180, 180)
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		var n: int = 16 if is_heavy else 10
+		for i in range(n):
+			var a: float = (float(i) / float(n)) * TAU + rng.randf_range(-0.18, 0.18)
+			_sparks.append({"a": a, "spd": rng.randf_range(55.0, 120.0 if is_heavy else 90.0), "w": rng.randf_range(1.6, 3.0)})
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _t >= _dur:
+			queue_free()
+			return
+		queue_redraw()
+
+	func _draw() -> void:
+		var k: float = clampf(_t / _dur, 0.0, 1.0)
+		var c: Vector2 = size * 0.5
+		var ease_k: float = 1.0 - pow(1.0 - k, 3.0)
+		var alpha: float = 1.0 - k
+		draw_arc(c, 16.0 + ease_k * 64.0, 0.0, TAU, 36, Color(col.r, col.g, col.b, alpha * 0.85), 3.6 * alpha + 0.6, true)
+		draw_circle(c, 12.0 * alpha, Color(1.0, 0.96, 0.85, alpha * 0.45))
+		for sp in _sparks:
+			var d0: float = ease_k * float(sp["spd"]) * 0.55
+			var d1: float = d0 + (12.0 * alpha + 4.0)
+			var p0: Vector2 = c + Vector2.from_angle(float(sp["a"])) * d0
+			var p1: Vector2 = c + Vector2.from_angle(float(sp["a"])) * d1
+			draw_line(p0, p1, Color(col.r, col.g, col.b, alpha), float(sp["w"]), true)
+
 var _zone_lbl: Label
+var _zone_bg: TextureRect
 var _enemy_card: PanelContainer
 var _player_card: PanelContainer
 var _enemy_icon: TextureRect
@@ -19,6 +60,7 @@ var _enemy_stagger_bar: ProgressBar
 var _enemy_stagger_lbl: Label
 var _enemy_intent_lbl: Label
 
+var _player_portrait: TextureRect
 var _player_head_lbl: Label
 var _player_hp_bar: ProgressBar
 var _player_hp_lbl: Label
@@ -29,6 +71,10 @@ var _player_buffs_lbl: Label
 
 var _log_rich: RichTextLabel
 var _cards_box: Control
+var _node_box: VBoxContainer
+var _mem_row: HFlowContainer
+var _node_pills: Array[PanelContainer] = []
+var _arena_box: Control
 var _finish_box: Control
 var _finish_lbl: RichTextLabel
 
@@ -55,6 +101,7 @@ func _ready() -> void:
 	ExplorationCombat.combat_updated.connect(_refresh_combat)
 	ExplorationCombat.combat_fx.connect(_on_combat_fx)
 	ExplorationCombat.combat_finished.connect(_on_combat_finished)
+	ExplorationCombat.expedition_node_ready.connect(_on_node_ready)
 
 func open_combat() -> void:
 	if _fx_layer != null:
@@ -65,8 +112,10 @@ func open_combat() -> void:
 	_last_player_hp = -1
 	_last_player_shield = -1
 	_was_staggered = false
+	_node_box.visible = false
 	_cards_box.visible = true
 	_finish_box.visible = false
+	AstralAudio.set_music_mood("combat")
 	_refresh_combat()
 	show_overlay()
 
@@ -75,22 +124,60 @@ func _build_ui() -> void:
 	_zone_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(_zone_lbl)
 
-	# --- ARENA SUPERIOR: ENEMIGO vs RENPET ---
+	var stepper := AstralTheme.hbox(8)
+	stepper.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_child(stepper)
+	var step_names: Array[String] = ["1. Vanguardia", "2. Encrucijada", "3. Santuario", "4. Jefe Final"]
+	for sn in step_names:
+		var sp := AstralTheme.panel("PillPanel")
+		sp.add_child(AstralTheme.label(sn, "CaptionLabel", AstralTheme.MUTED))
+		stepper.add_child(sp)
+		_node_pills.append(sp)
+
+	# --- ARENA SUPERIOR SOBRE ESCENARIO PINTADO ---
+	var arena_wrap := AstralTheme.panel("GlowPanel")
+	arena_wrap.clip_contents = true
+	content.add_child(arena_wrap)
+	_zone_bg = TextureRect.new()
+	_zone_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_zone_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_zone_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_zone_bg.modulate = Color(1, 1, 1, 0.58)
+	_zone_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arena_wrap.add_child(_zone_bg)
+	var bg_shade := ColorRect.new()
+	bg_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg_shade.color = Color(0.02, 0.04, 0.11, 0.42)
+	bg_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arena_wrap.add_child(bg_shade)
+
+	var arena_mg := MarginContainer.new()
+	arena_mg.add_theme_constant_override("margin_left", 10)
+	arena_mg.add_theme_constant_override("margin_right", 10)
+	arena_mg.add_theme_constant_override("margin_top", 10)
+	arena_mg.add_theme_constant_override("margin_bottom", 10)
+	arena_wrap.add_child(arena_mg)
+
 	var arena := AstralTheme.hbox(16)
-	content.add_child(arena)
+	_arena_box = arena
+	arena_mg.add_child(arena)
 
 	# Tarjeta Enemigo
 	_enemy_card = PanelContainer.new()
 	_enemy_card.theme_type_variation = "CardPanel"
+	_enemy_card.modulate = Color(1, 1, 1, 0.94)
 	_enemy_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	arena.add_child(_enemy_card)
 	var eh := AstralTheme.hbox(14)
 	_enemy_card.add_child(eh)
+	var e_frame := AstralTheme.panel("SunkenPanel")
+	e_frame.custom_minimum_size = Vector2(96, 100)
+	eh.add_child(e_frame)
 	_enemy_icon = TextureRect.new()
-	_enemy_icon.custom_minimum_size = Vector2(92, 92)
+	_enemy_icon.custom_minimum_size = Vector2(86, 90)
 	_enemy_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_enemy_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	eh.add_child(_enemy_icon)
+	e_frame.add_child(_enemy_icon)
 	var ev := AstralTheme.vbox(5)
 	ev.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	eh.add_child(ev)
@@ -114,8 +201,19 @@ func _build_ui() -> void:
 	_player_card.theme_type_variation = "CardPanel"
 	_player_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	arena.add_child(_player_card)
+	var ph := AstralTheme.hbox(14)
+	_player_card.add_child(ph)
+	var p_frame := AstralTheme.panel("GlowPanel")
+	p_frame.custom_minimum_size = Vector2(86, 100)
+	ph.add_child(p_frame)
+	_player_portrait = TextureRect.new()
+	_player_portrait.custom_minimum_size = Vector2(78, 92)
+	_player_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_player_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	p_frame.add_child(_player_portrait)
 	var pv := AstralTheme.vbox(5)
-	_player_card.add_child(pv)
+	pv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ph.add_child(pv)
 	_player_head_lbl = AstralTheme.label("%s  ESTADO DE RENPET Y EQUIPO" % AstralTheme.G_ANKH, "HeadingLabel", AstralTheme.TURQ)
 	pv.add_child(_player_head_lbl)
 	_player_hp_bar = _make_bar(AstralTheme.GOOD)
@@ -201,6 +299,19 @@ func _build_ui() -> void:
 	retreat_btn.pressed.connect(_on_retreat_pressed)
 	action_row.add_child(retreat_btn)
 
+	# --- CARTAS DE RECUERDO EQUIPADAS (MAZO PERSONALIZADO) ---
+	var mem_head := AstralTheme.label("Cartas de Recuerdo equipadas (1 uso por combate, 0 PA):", "CaptionLabel", AstralTheme.AMETHYST)
+	cards_root.add_child(mem_head)
+	_mem_row = HFlowContainer.new()
+	_mem_row.add_theme_constant_override("h_separation", 8)
+	_mem_row.add_theme_constant_override("v_separation", 6)
+	cards_root.add_child(_mem_row)
+
+	# --- PANEL DE EVENTO DE RUTA (NODOS 2 Y 3) ---
+	_node_box = AstralTheme.vbox(10)
+	_node_box.visible = false
+	content.add_child(_node_box)
+
 	# --- PANEL DE RESULTADO FINAL ---
 	var fin_v := AstralTheme.vbox(12)
 	fin_v.visible = false
@@ -234,10 +345,34 @@ func _refresh_combat() -> void:
 	_zone_lbl.text = "%s  %s  (Compañero: %s)" % [
 		AstralTheme.G_SWORD, str(z.get("name", "Expedición")), ExplorationCombat.companion_name
 	]
+	if _zone_bg != null:
+		_zone_bg.texture = AstralTheme.load_tex(CatalogDB.get_zone_backdrop(str(z.get("id", "zone_1"))))
 
-	if ExplorationCombat.enemy_icon != "" and ResourceLoader.exists(ExplorationCombat.enemy_icon):
-		_enemy_icon.texture = load(ExplorationCombat.enemy_icon)
+	if ExplorationCombat.enemy_icon != "":
+		var etex: Texture2D = AstralTheme.load_tex(ExplorationCombat.enemy_icon)
+		if etex != null:
+			_enemy_icon.texture = etex
+	if _player_portrait != null:
+		_player_portrait.texture = AstralTheme.load_tex(GameState.get_active_portrait_path())
 	_enemy_name_lbl.text = ExplorationCombat.enemy_name
+	for ni in range(_node_pills.size()):
+		var p: PanelContainer = _node_pills[ni]
+		var lbl := p.get_child(0) as Label
+		var active: bool = (ni + 1 == ExplorationCombat.current_node)
+		var passed: bool = (ni + 1 < ExplorationCombat.current_node)
+		p.theme_type_variation = "GlowPanel" if active else "PillPanel"
+		if lbl != null:
+			lbl.add_theme_color_override("font_color", AstralTheme.GOLD if active else (AstralTheme.TURQ if passed else AstralTheme.MUTED))
+
+	var is_node_event: bool = (not ExplorationCombat.in_combat) and (not ExplorationCombat.node_event_data.is_empty()) and (not _finish_box.visible)
+	if is_node_event:
+		_cards_box.visible = false
+		_node_box.visible = true
+		_rebuild_node_box(ExplorationCombat.node_event_data)
+	elif not _finish_box.visible:
+		_node_box.visible = false
+		_cards_box.visible = true
+		_rebuild_memory_cards()
 	_enemy_title_lbl.text = ExplorationCombat.enemy_title
 
 	var first_paint: bool = (_last_enemy_hp < 0)
@@ -332,10 +467,10 @@ func _refresh_combat() -> void:
 	]
 	if _unseal_btn != null:
 		var tier: int = GameState.get_secret_tier()
-		_unseal_btn.text = "%s  ENTREABRIR EL SELLO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH if tier >= 1 else "%s  DESATAR EL FULGOR OCULTO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH
+		_unseal_btn.text = "%s  ENTREABRIR EL SELLO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH if tier >= 2 else "%s  DESATAR EL FULGOR OCULTO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH
 		_unseal_btn.tooltip_text = "Libera brevemente la energía de Nyx-Aethel: daño devastador, +35%% HP y +2 PA, a costa de la integridad del Sello." if tier >= 2 else (
-			"Entreabre el Sello interior: daño devastador, +35%% HP y +2 PA, pero reduce el Sello Estelar y sube la Sincronía." if tier == 1 else
-			"Desata la fuerza dormida bajo su pecho: daño devastador, +35%% HP y +2 PA, pero erosiona su Armonía Estelar."
+			"Libera una llamarada latente tras el cristal: daño devastador, +35%% HP y +2 PA, pero desgasta el Resguardo." if tier == 1 else
+			"Desata la fuerza dormida bajo su pecho: daño devastador, +35%% HP y +2 PA, pero erosiona su Armonía Interior."
 		)
 	_fit()
 
@@ -344,23 +479,35 @@ func _on_combat_fx(kind: String) -> void:
 	if not is_visible_in_tree():
 		return
 	if kind in ["slash", "magic", "stagger", "unseal"] and _enemy_card != null:
-		var flash: Color = Color(1.4, 1.25, 0.7) if kind in ["stagger", "unseal"] else Color(1.35, 0.72, 0.72)
+		var is_heavy: bool = kind in ["stagger", "unseal"]
+		var flash: Color = Color(1.42, 1.26, 0.68) if is_heavy else Color(1.38, 0.72, 0.72)
+		var burst_col: Color = AstralTheme.GOLD if is_heavy else (AstralTheme.TURQ if kind == "magic" else AstralTheme.BAD)
+		_spawn_shock_burst(_enemy_card, burst_col, is_heavy)
 		_enemy_card.pivot_offset = _enemy_card.size * 0.5
-		_enemy_card.scale = Vector2(1.03, 1.03)
+		_enemy_card.scale = Vector2(1.045 if is_heavy else 1.03, 1.045 if is_heavy else 1.03)
 		_enemy_card.modulate = flash
 		var tw := create_tween()
 		tw.set_parallel(true)
-		tw.tween_property(_enemy_card, "modulate", Color.WHITE, 0.25)
-		tw.tween_property(_enemy_card, "scale", Vector2.ONE, 0.20)
+		tw.tween_property(_enemy_card, "modulate", Color(1, 1, 1, 0.94), 0.25)
+		tw.tween_property(_enemy_card, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK)
 	elif kind in ["hit", "shield"] and _player_card != null:
 		var flash_p: Color = Color(1.35, 0.68, 0.68) if kind == "hit" else Color(0.75, 1.25, 1.35)
+		_spawn_shock_burst(_player_card, AstralTheme.BAD if kind == "hit" else AstralTheme.TURQ, false)
 		_player_card.pivot_offset = _player_card.size * 0.5
-		_player_card.scale = Vector2(1.025, 1.025)
+		_player_card.scale = Vector2(1.03, 1.03)
 		_player_card.modulate = flash_p
 		var tw2 := create_tween()
 		tw2.set_parallel(true)
 		tw2.tween_property(_player_card, "modulate", Color.WHITE, 0.25)
-		tw2.tween_property(_player_card, "scale", Vector2.ONE, 0.20)
+		tw2.tween_property(_player_card, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK)
+
+func _spawn_shock_burst(target: Control, col: Color, is_heavy: bool) -> void:
+	if _fx_layer == null or target == null or DisplayServer.get_name() == "headless":
+		return
+	var sb := _ShockBurst.new(col, is_heavy)
+	var center: Vector2 = target.global_position - global_position + target.size * 0.5
+	sb.position = center - sb.size * 0.5
+	_fx_layer.add_child(sb)
 
 func _on_card_pressed(card_id: String) -> void:
 	ExplorationCombat.play_combat_card(card_id)
@@ -371,9 +518,59 @@ func _on_end_turn_pressed() -> void:
 func _on_retreat_pressed() -> void:
 	ExplorationCombat.retreat_from_combat()
 
+func _on_node_ready(_node_data: Dictionary) -> void:
+	_last_enemy_hp = -1
+	_last_enemy_stagger = -1
+	_refresh_combat()
+	_fit()
+
+func _rebuild_node_box(nd: Dictionary) -> void:
+	for c in _node_box.get_children():
+		c.queue_free()
+	var pan := AstralTheme.panel("GlowPanel")
+	var v := AstralTheme.vbox(8)
+	pan.add_child(v)
+	v.add_child(AstralTheme.label(str(nd.get("title", "Evento de Incursión")), "HeadingLabel", AstralTheme.GOLD, true))
+	v.add_child(AstralTheme.rich("[font_size=19]%s[/font_size]" % str(nd.get("body", "")), 64))
+	for ch in nd.get("choices", []):
+		var cid: String = str(ch.get("id", "safe"))
+		var b := AstralTheme.button(str(ch.get("label", "Continuar")), "" if bool(ch.get("disabled", false)) else "PrimaryButton")
+		b.disabled = bool(ch.get("disabled", false))
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.custom_minimum_size.y = 48
+		b.pressed.connect(func() -> void: ExplorationCombat.choose_expedition_node(cid))
+		v.add_child(b)
+	_node_box.add_child(pan)
+
+func _rebuild_memory_cards() -> void:
+	if _mem_row == null:
+		return
+	for c in _mem_row.get_children():
+		c.queue_free()
+	var eq: Array[Dictionary] = GameState.get_equipped_memory_cards()
+	if eq.is_empty():
+		_mem_row.add_child(AstralTheme.label("Ninguna equipada aún (equipa cartas de vínculo/rasgos en Exploración -> Mazo de Recuerdos).", "CaptionLabel", AstralTheme.MUTED))
+		return
+	for cd in eq:
+		var cid: String = str(cd.get("id", ""))
+		var ap_req: int = int(cd.get("ap", 1))
+		var used: bool = ExplorationCombat.used_memory_cards.has(cid)
+		var b := AstralTheme.button(
+			"%s %s%s" % [AstralTheme.G_STAR, str(cd.get("name", cid)), " [Usada]" if used else " (%d PA)" % ap_req],
+			"" if used else "TabLikeButton",
+			str(cd.get("desc", ""))
+		)
+		b.disabled = used or (not ExplorationCombat.in_combat) or (ExplorationCombat.player_ap < ap_req)
+		b.custom_minimum_size = Vector2(210, 40)
+		var card_id: String = cid
+		b.pressed.connect(func() -> void: ExplorationCombat.play_combat_card(card_id))
+		_mem_row.add_child(b)
+
 func _on_combat_finished(victory: bool, summary: String) -> void:
 	_pending_victory = victory
 	_pending_summary = summary
+	_node_box.visible = false
 	_cards_box.visible = false
 	_finish_box.visible = true
 	var col: String = "#86e3a6" if victory else "#ff7f7f"
@@ -389,6 +586,7 @@ func _on_close_after_finish() -> void:
 	if _fx_layer != null:
 		for c in _fx_layer.get_children():
 			c.queue_free()
+	AstralAudio.set_music_mood("tension" if (TimeManager.get_act_number() >= 2 or GameState.court_suspicion >= 60) else "manor")
 	hide_overlay()
 	expedition_ended.emit(_pending_victory, _pending_summary)
 

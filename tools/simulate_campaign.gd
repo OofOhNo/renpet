@@ -67,15 +67,18 @@ func play(strategy: String) -> void:
 		else:
 			TurnExecutor.toggle_father_task("supervise")
 			TurnExecutor.toggle_father_task("investigate")
-		# Social: una salida por bimestre con el mejor candidato disponible
+		# Social: descubrir desconocidos primero y luego profundizar vínculos (3 PS/bimestre)
 		if strategy == "social" or TimeManager.current_total_turn % 3 == 0:
 			var npc: String = RelationshipManager.NPC_ORDER[TimeManager.current_total_turn % 5]
-			var evt: Dictionary = RelationshipManager.get_next_bond_event(npc)
-			if evt.get("ok", false):
-				var ch: Array = evt["choices"]
-				RelationshipManager.apply_bond_event_choice(npc, ch[0])
-			else:
-				RelationshipManager.interact_with_candidate(npc, "support")
+			if not RelationshipManager.is_known(npc):
+				RelationshipManager.meet_candidate(npc)
+			if RelationshipManager.can_interact_with(npc):
+				var evt: Dictionary = RelationshipManager.get_next_bond_event(npc)
+				if evt.get("ok", false):
+					var ch: Array = evt["choices"]
+					RelationshipManager.apply_bond_event_choice(npc, ch[0])
+				else:
+					RelationshipManager.interact_with_candidate(npc, "chat")
 		# Crisol: asimila lo que tenga si no hay riesgo grave
 		if TimeManager.current_total_turn % 4 == 0:
 			for mid in GameState.materials_inventory.keys():
@@ -134,18 +137,21 @@ func test_save_roundtrip() -> void:
 	TurnExecutor.toggle_father_task("diplomacy")
 	TurnExecutor.resolve_bimester()
 	TurnExecutor.astrolabe_tuned_this_bimester = true
-	RelationshipManager.interact_with_candidate("soren", "support")
+	check(bool(RelationshipManager.meet_candidate("soren").get("ok", false)), "conocer a Soren debe consumir 1 PS")
+	check(bool(RelationshipManager.interact_with_candidate("soren", "chat").get("ok", false)), "conversar tras conocer a Soren")
 	var before: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"]) + JSON.stringify(SaveManager.build_payload()["plan"])
 	check(SaveManager.save_game(2), "no se pudo guardar en la ranura 2")
 	GameState.gold = 1
 	TurnExecutor.astrolabe_tuned_this_bimester = false
 	RelationshipManager.state["soren"]["affection"] = -99
+	RelationshipManager.state["soren"]["known"] = false
 	RivalMirror.scores["vespera"] = 5
 	var res: Dictionary = SaveManager.load_game(2)
 	check(res.get("ok", false), "no se pudo cargar: %s" % res.get("msg", ""))
 	var after: String = JSON.stringify(SaveManager.build_payload()["game_state"]) + JSON.stringify(SaveManager.build_payload()["relationships"]) + JSON.stringify(SaveManager.build_payload()["rivals"]) + JSON.stringify(SaveManager.build_payload()["plan"])
 	check(before == after, "el estado cargado difiere del guardado")
-	check(RelationshipManager.interacted_this_bimester, "no se restauró la salida social del bimestre")
+	check(RelationshipManager.is_known("soren"), "no se restauró el descubrimiento de Soren")
+	check(RelationshipManager.social_points_left == 1, "no se restauraron los puntos sociales del bimestre")
 	check(TurnExecutor.astrolabe_tuned_this_bimester, "no se restauró la sintonía del astrolabio")
 	TurnExecutor.resolve_bimester()
 	check(not TurnExecutor.astrolabe_tuned_this_bimester, "la sintonía del astrolabio debería resetearse tras resolver el bimestre")
@@ -156,7 +162,9 @@ func test_age_gate() -> void:
 	SaveManager.new_game()
 	for age in [12, 15, 17]:
 		GameState.age = age
+		check((GameState.get_secret_tier() == 0) if age == 12 else true, "a los 12 años el giro debe permanecer oculto (tier 0)")
 		for n in RelationshipManager.NPC_ORDER:
+			RelationshipManager.state[n]["known"] = true
 			check(not RelationshipManager.romance_available(n), "romance disponible a los %d con %s" % [age, n])
 			RelationshipManager.reset_bimester_flags()
 			var r: Dictionary = RelationshipManager.interact_with_candidate(n, "romance")
@@ -174,6 +182,7 @@ func test_age_gate() -> void:
 
 func test_catalog_integrity() -> void:
 	print("\n=== Integridad de catálogos ===")
+	check(CatalogDB.GIFTS.size() >= 6, "catálogo de obsequios completo")
 	for a in CatalogDB.ACTIVITIES:
 		for k in a["stats"].keys():
 			check(GameState.is_known_stat(k), "actividad %s usa atributo desconocido %s" % [a["id"], k])
@@ -188,6 +197,13 @@ func test_catalog_integrity() -> void:
 	for t in CatalogDB.FATHER_TASKS:
 		for k in t["effects"].keys():
 			check(GameState.is_known_stat(k), "tarea %s usa atributo desconocido %s" % [t["id"], k])
+	for d in CatalogDB.DIETS:
+		for k in d.get("effects", {}).keys():
+			check(GameState.is_known_stat(k), "dieta %s usa atributo desconocido %s" % [d["id"], k])
+	for vac in CatalogDB.VACATION_RETREATS.values():
+		check(GameState.is_known_stat(str(vac.get("stat_key", ""))), "vacación %s usa stat_key desconocido" % str(vac.get("id", "")))
+	check(CatalogDB.OUTFITS.size() >= 5, "catálogo de atuendos completo")
+	check(CatalogDB.MEMORY_CARDS.size() >= 15, "catálogo de cartas de recuerdo completo")
 	for ev in CatalogDB.MICRO_EVENTS:
 		for k in ev["effects"].keys():
 			check(GameState.is_known_stat(k), "micro-evento %s: atributo desconocido %s" % [ev["id"], k])

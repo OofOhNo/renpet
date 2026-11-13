@@ -13,10 +13,30 @@ const PAGES: Array[String] = [
 ]
 
 const ARCHETYPES: Array[Dictionary] = [
-	{"id": 0, "name": "I. El Filo del Vértice", "tag": "Marcial", "desc": "Antiguo campeón con un mandoble ancestral.", "bonus": "+30 Temple, +25 Destreza, +15 Reputación"},
-	{"id": 1, "name": "II. El Archimago del Velo", "tag": "Sabio", "desc": "Erudito de los archivos secretos del templo.", "bonus": "+35 Erudición, +25 Resonancia, +10% Investigación"},
-	{"id": 2, "name": "III. El Infiltrador del Silencio", "tag": "Sombras", "desc": "Con contactos en los canales y ojo para las trampas.", "bonus": "+400 Oro, +20 Destreza, +20 Magnetismo"},
-	{"id": 3, "name": "IV. El Custodio del Altar", "tag": "Devoto", "desc": "Sereno guardián del Santuario Caído.", "bonus": "+15 Anclaje Humano, +20 Devoción, -10 Estrés"}
+	{
+		"id": 0, "name": "El Filo del Vértice", "tag": "Marcial",
+		"icon": "res://assets/art/illus_martial_courtyard.png", "col": AstralTheme.EMBER,
+		"desc": "Campeón del mandoble ancestral.",
+		"chips": ["+30 Temple", "+25 Destreza", "+15 Rep."]
+	},
+	{
+		"id": 1, "name": "El Archimago del Velo", "tag": "Sabio",
+		"icon": "res://assets/art/bg_district_torre.png", "col": AstralTheme.SKY,
+		"desc": "Erudito de archivos celestes.",
+		"chips": ["+35 Erudición", "+25 Resonancia", "+10% Indag."]
+	},
+	{
+		"id": 2, "name": "El Infiltrador del Silencio", "tag": "Sombras",
+		"icon": "res://assets/art/bg_district_acueductos.png", "col": AstralTheme.AMETHYST,
+		"desc": "Contactos en los canales.",
+		"chips": ["+400 Oro", "+20 Destreza", "+20 Magnetismo"]
+	},
+	{
+		"id": 3, "name": "El Custodio del Altar", "tag": "Devoto",
+		"icon": "res://assets/art/bg_district_espejo.png", "col": AstralTheme.GOOD,
+		"desc": "Guardián del Santuario Caído.",
+		"chips": ["+15 Anclaje", "+20 Devoción", "-10 Estrés"]
+	}
 ]
 
 var _bg: TextureRect
@@ -29,6 +49,7 @@ var _chosen: int = 0
 var _arch_buttons: Array[Button] = []
 var _start_btn: Button
 var _error: Label
+var _ng_echo_chk: CheckBox
 
 func _ready() -> void:
 	set_panel_width(1100)
@@ -70,8 +91,12 @@ func _show_story_page() -> void:
 	_text.visible_ratio = 0.0
 	if _typing != null and _typing.is_valid():
 		_typing.kill()
-	_typing = create_tween()
-	_typing.tween_property(_text, "visible_ratio", 1.0, clampf(PAGES[_page].length() * 0.018, 1.5, 5.0))
+	var dur: float = SettingsManager.get_typewriter_duration(PAGES[_page].length())
+	if dur <= 0.01:
+		_text.visible_ratio = 1.0
+	else:
+		_typing = create_tween()
+		_typing.tween_property(_text, "visible_ratio", 1.0, dur)
 
 func _next_page() -> void:
 	AstralAudio.play_ui()
@@ -124,11 +149,49 @@ func _show_creation() -> void:
 			var b := Button.new()
 			b.toggle_mode = true
 			b.theme_type_variation = "TabLikeButton"
-			b.custom_minimum_size = Vector2(0, 118)
+			b.custom_minimum_size = Vector2(0, 114)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			b.text = "%s   (%s)\n%s\n%s" % [a["name"], a["tag"], a["desc"], a["bonus"]]
-			b.tooltip_text = str(a["bonus"])
+			b.tooltip_text = "%s — %s" % [str(a["name"]), str(a["desc"])]
+			var row := AstralTheme.hbox(10)
+			row.set_anchors_preset(Control.PRESET_FULL_RECT)
+			row.offset_left = 10
+			row.offset_right = -10
+			row.offset_top = 8
+			row.offset_bottom = -8
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			b.add_child(row)
+			var col: Color = a["col"]
+			var ib := AstralTheme.vignette_card(str(a["icon"]), Vector2(86, 56), col)
+			ib.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			ib.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(ib)
+			var av := AstralTheme.vbox(4)
+			av.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			av.alignment = BoxContainer.ALIGNMENT_CENTER
+			av.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(av)
+			var th := AstralTheme.hbox(8)
+			th.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			av.add_child(th)
+			var ttl := AstralTheme.label(str(a["name"]), "SubLabel", AstralTheme.GOLD_PALE)
+			ttl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			ttl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			th.add_child(ttl)
+			var tag_chip := AstralTheme.chip(str(a["tag"]), col, col, 13)
+			tag_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			th.add_child(tag_chip)
+			var dl := AstralTheme.label(str(a["desc"]), "CaptionLabel", AstralTheme.MUTED, true)
+			dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			av.add_child(dl)
+			var chips := HFlowContainer.new()
+			chips.add_theme_constant_override("h_separation", 6)
+			chips.add_theme_constant_override("v_separation", 4)
+			chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			for ch_s in a["chips"]:
+				var cp := AstralTheme.chip(str(ch_s), AstralTheme.IVORY, Color(col, 0.5), 13)
+				cp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				chips.add_child(cp)
+			av.add_child(chips)
 			var aid: int = int(a["id"])
 			b.pressed.connect(func() -> void: _choose(aid))
 			grid.add_child(b)
@@ -141,6 +204,13 @@ func _show_creation() -> void:
 				"%s  Bendiciones del Tapiz (NG+) activas: %s" % [AstralTheme.G_STAR, ", ".join(boon_names)],
 				"CaptionLabel", AstralTheme.GOOD, true
 			))
+		_ng_echo_chk = null
+		if ConstellationTapestry.discovered_branches.size() >= 1:
+			_ng_echo_chk = CheckBox.new()
+			_ng_echo_chk.text = "✦ Eco del Solsticio (NG+): Despertar con recuerdos del otro ciclo (+12% Investigación inicial)"
+			_ng_echo_chk.add_theme_color_override("font_color", AstralTheme.TURQ)
+			_ng_echo_chk.button_pressed = GameState.story_ng_echo_used
+			content.add_child(_ng_echo_chk)
 		_start_btn = AstralTheme.button("%s  COMENZAR LA HISTORIA  %s" % [AstralTheme.G_STAR, AstralTheme.G_STAR], "PrimaryButton")
 		_start_btn.custom_minimum_size.y = 60
 		_start_btn.pressed.connect(_confirm)
@@ -158,5 +228,7 @@ func _confirm() -> void:
 	if d == "" or f == "":
 		_error.text = "Ambos nombres deben tener al menos una letra."
 		return
+	var use_echo: bool = _ng_echo_chk != null and _ng_echo_chk.button_pressed
+	GameState.story_ng_echo_used = use_echo
 	hide_overlay()
 	finished.emit(d, f, _chosen)

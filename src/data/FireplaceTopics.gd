@@ -16,7 +16,7 @@ const ATTITUDES: Dictionary = {
 const TOPICS: Array[Dictionary] = [
 	{
 		"id": "dream_of_chains", "when": {},
-		"title": "Sus extraños sueños sobre cadenas de luz y un espejo oscuro",
+		"title": "Sus extraños sueños frente a un espejo nocturno",
 		"prompt": "\"Padre... anoche soñé de nuevo con un cielo sin luna. Había una voz detrás de un cristal preguntándome por qué los humanos tememos tanto al cambio.\"",
 		"stances": {
 			"warm": {"father": "\"Mientras estés bajo este techo, ningún sueño podrá hacerte daño. Toma mi mano; yo estoy aquí contigo.\"",
@@ -186,9 +186,9 @@ const TOPICS: Array[Dictionary] = [
 		}
 	},
 	{
-		"id": "mirror_dreams", "when": {"min_age": 15, "sync_min": 20},
+		"id": "mirror_dreams", "when": {"min_age": 16, "sync_min": 20},
 		"title": "El muchacho del espejo de agua",
-		"prompt": "\"Zephyr volvió anoche. Ya no intenta asustarme; hoy me preguntó cómo sabe el pan caliente. No supe qué responderle, Padre.\"",
+		"prompt": "\"La presencia tras el espejo volvió anoche. Ya no intenta asustarme; hoy me preguntó cómo sabe el pan caliente. No supe qué responderle, Padre.\"",
 		"stances": {
 			"warm": {"father": "\"Dile que está caliente, suave, y que huele a casa. Y que algún día lo comerá de verdad.\"",
 				"reply": "\"...Creo que lo conmoviste, Padre. Se quedó muy callado después.\"",
