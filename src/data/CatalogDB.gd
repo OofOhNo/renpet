@@ -44,7 +44,7 @@ const ACTIVITIES: Array[Dictionary] = [
 		"category": "class", "cost_or_wage": -70, "min_age": 12,
 		"stats": {"luminiscencia": 20, "devocion": 10, "moralidad": 8},
 		"stress": 5, "seal_delta": 3, "rival_id": "", "facility_bonus": "",
-		"desc": "Meditación sagrada y cánticos antiguos que refuerzan +3% la Integridad del Sello Estelar."
+		"desc": "Meditación sagrada y cánticos antiguos que refuerzan +3% la armonía interior de su estrella."
 	},
 
 	# --- OFICIOS (generan oro) ---
@@ -83,7 +83,7 @@ const ACTIVITIES: Array[Dictionary] = [
 		"stats": {"destreza": 20, "entropia": 10, "abyssal_sync": 6, "moralidad": -6},
 		"stress": 12, "seal_delta": -3, "rival_id": "caelum", "facility_bonus": "",
 		"loot_item": "mercury_dew", "loot_chance": 25,
-		"desc": "Tráfico nocturno de reliquias con la banda de Kaelen. Altísimo oro, pero erosiona -3% el Sello."
+		"desc": "Tráfico nocturno de reliquias con la banda de Kaelen. Altísimo oro, pero erosiona -3% su equilibrio astral."
 	},
 
 	# --- DESCANSO Y VIDA TERRENAL ---
@@ -99,7 +99,7 @@ const ACTIVITIES: Array[Dictionary] = [
 		"category": "rest", "cost_or_wage": -80, "min_age": 12,
 		"stats": {"temple": 10, "gracia": 10, "human_anchor": 6},
 		"stress": -36, "seal_delta": 4, "rival_id": "", "facility_bonus": "",
-		"desc": "Aguas termales ricas en minerales que alivian el estrés y restauran el Sello."
+		"desc": "Aguas termales ricas en minerales que alivian el estrés y estabilizan la luz interior."
 	}
 ]
 
@@ -145,7 +145,7 @@ const FATHER_TASKS: Array[Dictionary] = [
 # ==============================================================================
 const DIETS: Array[Dictionary] = [
 	{
-		"id": 0, "key": "austere", "name": "Dieta Austera", "icon": "❂", "cost": 30,
+		"id": 0, "key": "austere", "name": "Dieta Austera", "icon": "☀", "cost": 30,
 		"effects": {"stress": 4, "temple": -2},
 		"desc": "Ahorro económico: +4 Estrés, -2 Temple."
 	},
@@ -160,10 +160,10 @@ const DIETS: Array[Dictionary] = [
 		"desc": "Opulenta: -15 Estrés, +8 Gracia, +4 Temple."
 	},
 	{
-		"id": 3, "key": "purge", "name": "Infusión de Lirio Estelar", "icon": "✿", "cost": 150,
+		"id": 3, "key": "purge", "name": "Infusión de Lirio Estelar", "icon": "❀", "cost": 150,
 		"effects": {"seal_integrity": 3},
 		"saturation": -15,
-		"desc": "Purificadora: -15 Saturación Astral y +3% Sello."
+		"desc": "Purificadora: -15 Saturación Astral y +3% Armonía Estelar."
 	}
 ]
 
@@ -178,11 +178,11 @@ const PRESTIGE_SYNERGIES: Array[Dictionary] = [
 	{"id": "alabaster_rose", "title": "Estrella de la Corte de Alabastro", "stat_a": "gracia", "req_a": 220, "stat_b": "magnetismo", "req_b": 220,
 		"bonus_desc": "+30% de ingresos en recitales y gran ventaja diplomática con el Príncipe Cassian."},
 	{"id": "mortal_beacon", "title": "Faro de Humanidad Inquebrantable", "stat_a": "human_anchor", "req_a": 85, "stat_b": "luminiscencia", "req_b": 200,
-		"bonus_desc": "El amor terrenal protege su alma: regenera +2% de Sello Estelar cada bimestre."},
+		"bonus_desc": "El amor terrenal protege su alma: regenera +2% de Armonía Estelar cada bimestre."},
 	{"id": "eclipse_sovereign", "title": "Domadora del Eclipse Interior", "stat_a": "abyssal_sync", "req_a": 45, "stat_b": "gravedad", "req_b": 180,
 		"bonus_desc": "Pacto consciente con el eco de tus sueños: el Horno Astral otorga un +30% adicional de atributos."},
 	{"id": "solar_artificer", "title": "Artífice del Reloj Solar", "stat_a": "destreza", "req_a": 210, "stat_b": "resonancia", "req_b": 210,
-		"bonus_desc": "Maestría en engranajes celestes: transmutar cuesta menos y la Investigación del Sello rinde +15%."}
+		"bonus_desc": "Maestría en engranajes celestes: transmutar cuesta menos y las pesquisas sobre tu origen rinden +15%."}
 ]
 
 # Actividades que cuentan como "estudio astral" / "marcial" para los bonos de sinergia.
@@ -228,12 +228,12 @@ const COSMIC_MATERIALS: Array[Dictionary] = [
 ]
 
 const MUTATIONS: Dictionary = {
-	"paso_de_luz": {"name": "Paso de Luz", "desc": "Carta de combate: Evasión + robo de 2 cartas."},
+	"paso_de_luz": {"name": "Paso de Luz", "desc": "Otorga 18% de evasión en combate y +15 Escudo Astral al inicio de cada turno."},
 	"pulso_cristalino": {"name": "Pulso Cristalino", "desc": "Regenera 8% de HP por turno en combate."},
-	"sangre_pesada": {"name": "Sangre Pesada", "desc": "Inmunidad a empuje y venenos."},
-	"voz_del_prisionero": {"name": "Eco del Espejo", "desc": "Despierta una voz enigmática en los sueños de Renpet."},
-	"paradoja_menor": {"name": "Paradoja Menor", "desc": "Permite repetir el último ataque."},
-	"bendicion_del_tiempo": {"name": "Bendición del Tiempo", "desc": "Ancla Sagrada: el Sello resiste mejor las asimilaciones."}
+	"sangre_pesada": {"name": "Sangre Pesada", "desc": "+40 HP máximo y reduce un 15% el daño enemigo recibido en combate."},
+	"voz_del_prisionero": {"name": "Eco del Espejo", "desc": "Despierta una voz enigmática en los sueños de Renpet y potencia su vínculo."},
+	"paradoja_menor": {"name": "Paradoja Menor", "desc": "Otorga +1 Punto de Acción máximo (4 PA por turno) en combate."},
+	"bendicion_del_tiempo": {"name": "Bendición del Tiempo", "desc": "Ancla Sagrada: su equilibrio estelar resiste mejor las asimilaciones."}
 }
 
 # Migración de partidas antiguas (nombres de mutación -> id)

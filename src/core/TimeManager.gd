@@ -199,7 +199,7 @@ func apply_bimester_upkeep() -> Array[String]:
 	if GameState.unlocked_synergies.has("mortal_beacon"):
 		var gained: int = GameState.modify_stat("seal_integrity", 2)
 		if gained > 0:
-			lines.append("Faro de Humanidad Inquebrantable: el Sello se regeneró +%d%%." % gained)
+			lines.append("Faro de Humanidad Inquebrantable: %s se regeneró +%d%%." % [GameState.get_stat_label("seal_integrity"), gained])
 
 	# Metabolismo astral y efectos de la saturación
 	for l in CrucibleManager.apply_bimester_decay():

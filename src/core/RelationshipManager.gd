@@ -67,10 +67,10 @@ const NPC_DATA: Dictionary = {
 	"mirari": {
 		"name": "Mirari del Anfiteatro", "title": "La Cantora que Escucha el Tiempo", "location": "Anfiteatro de Cristal",
 		"base_age": 14, "start": {"affection": 30, "respect": 30},
-		"perk_desc": "Compañera en Expedición: Regenera +15% de HP cada turno y protege la Integridad del Sello.",
-		"bio": "Oráculo y arpista ciega que escucha dos latidos en el pecho de Renpet: el corazón humano y el astro encadenado.",
+		"perk_desc": "Compañera en Expedición: Regenera +15% de HP cada turno y protege su Armonía Estelar.",
+		"bio": "Oráculo y arpista ciega que escucha dos latidos en el pecho de Renpet: el corazón humano y un eco estelar antiguo.",
 		"dialogues": {
-			"support": "\"Acércate, Renpet. Puedo oír cómo la canción de tu padre envuelve las cadenas de tu pecho para que no te lastimen.\"",
+			"support": "\"Acércate, Renpet. Puedo oír cómo el cariño de tu padre envuelve la estrella de tu pecho para que no te lastime.\"",
 			"romance": "\"Mis ojos no ven las estrellas del cielo, pero cuando toco tu rostro siento la luz más hermosa de la creación.\"",
 			"gift": "\"Cuerdas de plata resonante para mi arpa... El sonido que producen calma hasta los ecos más tristes del tiempo.\"",
 			"provoke": "\"Tu corazón suena quebrado y lleno de ceniza cruel, Renpet. Si devoras a los inocentes, mi canto tendrá que sellarte.\""
@@ -167,9 +167,9 @@ func get_relationship_status_title(npc_id: String) -> String:
 	elif aff < 20 and res >= 50 and spk >= 45:
 		return "♦ TENSIÓN ENEMIGOS-A-AMANTES"
 	elif aff < 0 and spk >= 50:
-		return "♠ OBSESIÓN TRÁGICA"
+		return "❖ OBSESIÓN TRÁGICA"
 	elif aff >= 65 and res >= 60 and spk < 60:
-		return "★ MEJOR AMIGO / HERMANO DE JURAMENTO"
+		return "✦ MEJOR AMIGO / HERMANO DE JURAMENTO"
 	elif aff >= 35 and res >= 30:
 		return "✦ Confidente y Aliado Leal"
 	elif aff <= -45 and res >= 40:

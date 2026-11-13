@@ -353,7 +353,9 @@ func get_dynamic_manor_greeting() -> String:
 	if stress >= 75:
 		return "\"Padre... me pesan los párpados y siento un zumbido constante dentro del pecho. ¿Podríamos descansar un poco este mes?\""
 	if seal_integrity < 50 and abyssal_sync >= 40:
-		return "\"Anoche volví a ver a ese chico de ojos de eclipse en mis sueños, Padre. Dice que la Diosa nos mintió a los dos... pero mientras tú estés conmigo, no tengo miedo.\""
+		if get_secret_tier() >= 1:
+			return "\"Anoche volví a ver a ese chico de ojos de eclipse en mis sueños, Padre. Dice que la Diosa nos mintió a los dos... pero mientras tú estés conmigo, no tengo miedo.\""
+		return "\"Anoche volví a soñar con un espejo de agua violeta, Padre. Hay una mirada antigua detrás... pero mientras tú estés conmigo, no tengo miedo.\""
 	if age >= 17 and seal_investigation_progress >= 60:
 		return "\"He estado leyendo tus notas sobre el templo antiguo. Sea lo que sea que encerraron dentro de mí cuando nací, juro que no dejaré que nos separe.\""
 	if astral_saturation >= 70:

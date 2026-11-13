@@ -32,7 +32,7 @@ const STAT_COLORS: Dictionary = {
 }
 
 const STAT_TOOLTIPS: Dictionary = {
-	"temple": "Fortaleza física y resistencia. Define el HP base en combate (Fase 7).",
+	"temple": "Fortaleza física y resistencia. Define el HP base en combate y expediciones.",
 	"destreza": "Agilidad, puntería y reflejos.",
 	"erudicion": "Conocimiento académico y astral.",
 	"gracia": "Elegancia, etiqueta y arte escénico.",

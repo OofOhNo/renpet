@@ -70,18 +70,20 @@ func preview(material_id: String) -> Dictionary:
 	var seal_delta: int = int(mat.get("seal_delta", 0))
 	if seal_delta < 0 and GameState.has_mutation("bendicion_del_tiempo"):
 		seal_delta = int(ceil(float(seal_delta) * 0.5))
+	var seal_lbl: String = GameState.get_stat_label("seal_integrity")
+	var sync_lbl: String = GameState.get_stat_label("abyssal_sync")
 	var warnings: Array[String] = []
 	if GameState.astral_saturation >= SATURATION_HARD_LIMIT:
 		seal_delta -= 4
-		warnings.append("Saturación crítica: absorbes solo el 40% y el Sello sufre -4% extra.")
+		warnings.append("Saturación crítica: absorbes solo el 40%% y %s sufre -4%% extra." % seal_lbl)
 	elif GameState.astral_saturation >= SATURATION_SOFT_LIMIT:
-		warnings.append("Saturación alta: absorbes solo el 70% de los atributos.")
+		warnings.append("Saturación alta: absorbes solo el 70%% de los atributos.")
 
 	var sat_gain: int = get_saturation_gain(mat)
 	var sat_after: int = GameState.astral_saturation + sat_gain
 	var overload: bool = sat_after > 100
 	if overload:
-		warnings.append("¡Sobrecarga Astral! -15% Sello, +20 Estrés, +10 Sincronía, +8 Entropía.")
+		warnings.append("¡Sobrecarga Astral! -15%% %s, +20 Estrés, +10 %s, +8 Entropía." % [seal_lbl, sync_lbl])
 	var mut_id: String = str(mat.get("mutation", ""))
 	return {
 		"ok": true, "material": mat, "stat_deltas": stat_deltas, "seal_delta": seal_delta,
@@ -114,7 +116,7 @@ func assimilate(material_id: String, confirm_overload: bool = false) -> Dictiona
 			gains.append("%s %+d" % [GameState.get_stat_label(sk), applied])
 	var seal_applied: int = GameState.modify_stat("seal_integrity", int(p["seal_delta"]))
 	if seal_applied != 0:
-		gains.append("Sello %+d%%" % seal_applied)
+		gains.append("%s %+d%%" % [GameState.get_stat_label("seal_integrity"), seal_applied])
 
 	var overload_happened: bool = bool(p["overload"])
 	if overload_happened:
@@ -196,7 +198,7 @@ func purify_saturation() -> Dictionary:
 	GameState.modify_stat("stress", -10)
 	GameState.end_batch()
 	crucible_changed.emit()
-	return {"ok": true, "msg": "El baño de vapor de alabastro redujo -25%% la Saturación Astral, restauró +3%% del Sello y alivió -10 de Estrés (-%d G)." % cost}
+	return {"ok": true, "msg": "El baño de vapor de alabastro redujo -25%% la Saturación Astral, restauró +3%% de %s y alivió -10 de Estrés (-%d G)." % [GameState.get_stat_label("seal_integrity"), cost]}
 
 # ------------------------------------------------------------------------------
 # METABOLISMO ASTRAL (se llama desde el mantenimiento de fin de bimestre)

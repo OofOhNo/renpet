@@ -54,7 +54,7 @@ func build() -> void:
 	_section(right, "Esfera Cósmica", ["luminiscencia", "gravedad", "resonancia"], 1200)
 	_section(right, "Cosmos Interior", ["entropia", "astral_saturation"], 100)
 	_section(right, "Estado Vital y Familia", ["stress", "affection", "father_reputation", "seal_investigation"], 100)
-	_section(right, "Los 3 Medidores del Sello", ["human_anchor", "seal_integrity", "abyssal_sync"], 100)
+	_section(right, "Los 3 Medidores del Alma", ["human_anchor", "seal_integrity", "abyssal_sync"], 100)
 
 	# ------- Pestaña 2: Rasgos y Sinergias -------
 	var t2 := add_tab(_tabs, "  Rasgos y Sinergias  ")

@@ -57,8 +57,9 @@ func refresh() -> void:
 		return
 	_sat_bar.set_value(GameState.astral_saturation)
 	var eff: float = CrucibleManager.get_efficiency()
+	var seal_lbl: String = GameState.get_stat_label("seal_integrity")
 	if GameState.astral_saturation >= CrucibleManager.SATURATION_HARD_LIMIT:
-		_sat_note.text = "Crítica: absorbes solo el 40% y el Sello sufre daño extra."
+		_sat_note.text = "Crítica: absorbes solo el 40%% y %s sufre daño extra." % seal_lbl
 		_sat_note.add_theme_color_override("font_color", AstralTheme.BAD)
 	elif GameState.astral_saturation >= CrucibleManager.SATURATION_SOFT_LIMIT:
 		_sat_note.text = "Alta: absorbes solo el 70% de los atributos."
@@ -104,7 +105,7 @@ func _refresh_detail() -> void:
 	clear(_detail_box)
 	if _selected == "":
 		var card := AstralTheme.panel("SunkenPanel")
-		card.add_child(AstralTheme.label("Elige un material del inventario para ver la vista previa de la fusión: atributos, efecto sobre el Sello y Saturación resultante.", "", AstralTheme.MUTED, true))
+		card.add_child(AstralTheme.label("Elige un material del inventario para ver la vista previa de la fusión: atributos, efecto sobre su armonía estelar y Saturación resultante.", "", AstralTheme.MUTED, true))
 		_detail_box.add_child(card)
 		return
 	var p: Dictionary = CrucibleManager.preview(_selected)
@@ -120,7 +121,8 @@ func _refresh_detail() -> void:
 	for sk in p["stat_deltas"].keys():
 		lines.append(AstralTheme.colored("%s %s" % [GameState.get_stat_label(sk), AstralTheme.signed(int(p["stat_deltas"][sk]))], AstralTheme.GOOD))
 	var sd: int = int(p["seal_delta"])
-	lines.append(AstralTheme.colored("Sello %s%%  (%d%% → %d%%)" % [AstralTheme.signed(sd), GameState.seal_integrity, int(p["seal_after"])], AstralTheme.GOOD if sd >= 0 else AstralTheme.BAD))
+	var seal_lbl: String = GameState.get_stat_label("seal_integrity")
+	lines.append(AstralTheme.colored("%s %s%%  (%d%% → %d%%)" % [seal_lbl, AstralTheme.signed(sd), GameState.seal_integrity, int(p["seal_after"])], AstralTheme.GOOD if sd >= 0 else AstralTheme.BAD))
 	lines.append(AstralTheme.colored("Saturación %s  (%d → %d)" % [AstralTheme.signed(int(p["sat_gain"])), GameState.astral_saturation, int(p["sat_after"])], AstralTheme.EMBER if int(p["sat_gain"]) > 0 else AstralTheme.GOOD))
 	var rich := AstralTheme.rich("\n".join(lines))
 	v.add_child(rich)
@@ -140,7 +142,9 @@ func _refresh_detail() -> void:
 func _try_assimilate(mid: String, confirmed: bool) -> void:
 	var res: Dictionary = CrucibleManager.assimilate(mid, confirmed)
 	if res.get("needs_confirm", false):
-		_confirm.dialog_text = str(res["msg"]) + "\n\nSufrirá: -15% Sello, +20 Estrés, +10 Sincronía y +8 Entropía."
+		_confirm.dialog_text = str(res["msg"]) + "\n\nSufrirá: -15%% %s, +20 Estrés, +10 %s y +8 Entropía." % [
+			GameState.get_stat_label("seal_integrity"), GameState.get_stat_label("abyssal_sync")
+		]
 		for c in _confirm.confirmed.get_connections():
 			_confirm.confirmed.disconnect(c["callable"])
 		_confirm.confirmed.connect(func() -> void: _try_assimilate(mid, true))
@@ -206,7 +210,7 @@ func _refresh_shop() -> void:
 		refresh())
 	row.add_child(dist)
 	var pur := AstralTheme.button("%s  Purificar Saturación (%d G)" % [AstralTheme.G_FLOWER, CrucibleManager.get_purify_cost()], "TabLikeButton",
-		"-25 Saturación, +3% Sello, -10 Estrés.")
+		"-25 Saturación, +3%% %s, -10 Estrés." % GameState.get_stat_label("seal_integrity"))
 	pur.custom_minimum_size.y = 56
 	pur.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pur.disabled = GameState.astral_saturation <= 0 or GameState.gold < CrucibleManager.get_purify_cost()

@@ -7,6 +7,7 @@ const MANOR_SCENE: String = "res://src/scenes/ManorHub.tscn"
 var _menu: MenuOverlay
 var _tapestry: ConstellationOverlay
 var _tap_btn: Button
+var _boon_hint: Label
 var _anim: float = 0.0
 var _title_label: Label
 
@@ -71,6 +72,9 @@ func _ready() -> void:
 	_tap_btn.custom_minimum_size.y = 54
 	_tap_btn.pressed.connect(func() -> void: _tapestry.open_tapestry(0))
 	col.add_child(_tap_btn)
+	_boon_hint = AstralTheme.label("", "CaptionLabel", AstralTheme.GOOD, true)
+	_boon_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_boon_hint)
 	if not OS.has_feature("web"):
 		var b_quit := AstralTheme.button("Salir", "DangerButton")
 		b_quit.custom_minimum_size.y = 52
@@ -88,6 +92,7 @@ func _ready() -> void:
 	_tapestry = ConstellationOverlay.new()
 	add_child(_tapestry)
 	ConstellationTapestry.tapestry_updated.connect(_refresh_tap_btn)
+	_refresh_tap_btn()
 
 	b_new.grab_focus()
 
@@ -114,12 +119,27 @@ func _refresh_tap_btn() -> void:
 	if _tap_btn != null:
 		var total_matrix: int = EndingEvaluator.BRANCH_ORDER.size() * EndingEvaluator.VOCATION_ORDER.size()
 		_tap_btn.text = "%s  El Tapiz de las Constelaciones (%d/%d)" % [AstralTheme.G_STAR, ConstellationTapestry.discovered_endings.size(), total_matrix]
+	if _boon_hint != null:
+		var bnames: Array[String] = ConstellationTapestry.get_active_boon_names()
+		_boon_hint.visible = not bnames.is_empty()
+		if _boon_hint.visible:
+			_boon_hint.text = "%s  NG+ activo (%d): %s" % [AstralTheme.G_STAR2, bnames.size(), ", ".join(bnames)]
 
 func _load(slot: int) -> void:
 	SaveManager.pending_load_slot = slot
 	get_tree().change_scene_to_file(MANOR_SCENE)
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_F11:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	var kc: int = (event as InputEventKey).keycode
+	if kc == KEY_ESCAPE:
+		if _tapestry != null and _tapestry.visible:
+			_tapestry.hide_overlay()
+			get_viewport().set_input_as_handled()
+		elif _menu != null and _menu.visible:
+			_menu.hide_overlay()
+			get_viewport().set_input_as_handled()
+	elif kc == KEY_F11:
 		var full: bool = DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)

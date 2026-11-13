@@ -505,9 +505,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		_toggle_fullscreen()
 		return
 	if _any_overlay_visible():
-		if k.keycode == KEY_ESCAPE and (_menu.visible or _letter.visible):
-			(_menu if _menu.visible else _letter).hide_overlay()
-			get_viewport().set_input_as_handled()
+		if k.keycode == KEY_ESCAPE:
+			if _ending != null and _ending._tapestry != null and _ending._tapestry.visible:
+				_ending._tapestry.hide_overlay()
+				get_viewport().set_input_as_handled()
+			elif _menu.visible or _letter.visible:
+				(_menu if _menu.visible else _letter).hide_overlay()
+				get_viewport().set_input_as_handled()
 		return
 	if not _ui_root.visible:
 		if k.keycode == KEY_ESCAPE:

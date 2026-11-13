@@ -4,6 +4,7 @@ class_name ConstellationOverlay
 ## El Tapiz de las Constelaciones (Fase 9.3): Matriz de 65 Finales, Ramas, Vínculos y Bendiciones NG+.
 
 var _active_tab: int = 0
+var _branch_filter: String = "all"
 var _status_msg: String = ""
 var _status_col: Color = AstralTheme.TURQ
 
@@ -50,7 +51,9 @@ func _render() -> void:
 
 		var tabs := TabContainer.new()
 		tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tabs.tab_changed.connect(func(idx: int) -> void: _active_tab = idx)
+		tabs.tab_changed.connect(func(idx: int) -> void:
+			_active_tab = idx
+			_fit())
 		content.add_child(tabs)
 
 		_build_matrix_tab(tabs)
@@ -85,11 +88,48 @@ func _build_matrix_tab(tabs: TabContainer) -> void:
 		"CaptionLabel", AstralTheme.MUTED, true
 	))
 
+	var total_discovered: int = ConstellationTapestry.discovered_endings.size()
+	var filter_flow := HFlowContainer.new()
+	filter_flow.add_theme_constant_override("h_separation", 6)
+	filter_flow.add_theme_constant_override("v_separation", 6)
+	var b_all := AstralTheme.button("Todas (%d/65)" % total_discovered, "PrimaryButton" if _branch_filter == "all" else "")
+	b_all.custom_minimum_size = Vector2(0, 34)
+	b_all.pressed.connect(func() -> void:
+		_branch_filter = "all"
+		_render())
+	filter_flow.add_child(b_all)
+
+	var branch_counts: Dictionary = {}
 	for bid in EndingEvaluator.BRANCH_ORDER:
+		var cnt: int = 0
+		for vid in EndingEvaluator.VOCATION_ORDER:
+			if ConstellationTapestry.discovered_endings.has("%s__%s" % [bid, vid]):
+				cnt += 1
+		branch_counts[bid] = cnt
+		var bdata_f: Dictionary = EndingEvaluator.BRANCHES[bid]
+		var b_unlocked_f: bool = ConstellationTapestry.discovered_branches.has(bid)
+		var f_label: String = "%s (%d/13)" % [str(bdata_f.get("short", bdata_f["name"])), cnt] if b_unlocked_f else "Rama %d: ??? (%d/13)" % [int(bdata_f["order"]), cnt]
+		var bf := AstralTheme.button(f_label, "PrimaryButton" if _branch_filter == bid else "")
+		bf.custom_minimum_size = Vector2(0, 34)
+		bf.pressed.connect(func() -> void:
+			_branch_filter = bid
+			_render())
+		filter_flow.add_child(bf)
+	v.add_child(filter_flow)
+
+	for bid in EndingEvaluator.BRANCH_ORDER:
+		if _branch_filter != "all" and bid != _branch_filter:
+			continue
 		var bdata: Dictionary = EndingEvaluator.BRANCHES[bid]
 		var branch_unlocked: bool = ConstellationTapestry.discovered_branches.has(bid)
+		var unlocked_in_branch: int = int(branch_counts.get(bid, 0))
 		var b_title: String = str(bdata["name"]) if branch_unlocked else "Rama %d: ??? (Aún sin alcanzar)" % int(bdata["order"])
-		v.add_child(AstralTheme.label("%s  %s" % [AstralTheme.G_ANKH, b_title], "SubLabel", Color.html(str(bdata["color"])) if branch_unlocked else AstralTheme.MUTED, true))
+		v.add_child(AstralTheme.label(
+			"%s  %s  (%d / 13 descubiertos)" % [AstralTheme.G_ANKH, b_title, unlocked_in_branch],
+			"SubLabel",
+			Color.html(str(bdata["color"])) if branch_unlocked else AstralTheme.MUTED,
+			true
+		))
 
 		var grid := GridContainer.new()
 		grid.columns = 2

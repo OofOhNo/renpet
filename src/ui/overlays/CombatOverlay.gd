@@ -28,6 +28,7 @@ var _finish_box: Control
 var _finish_lbl: RichTextLabel
 
 var _card_buttons: Dictionary = {}
+var _unseal_btn: Button
 var _pending_victory: bool = false
 var _pending_summary: String = ""
 
@@ -147,18 +148,18 @@ func _build_ui() -> void:
 	var action_row := AstralTheme.hbox(12)
 	cards_root.add_child(action_row)
 
-	var unseal_btn := AstralTheme.button(
-		"%s  ENTREABRIR EL SELLO / FULGOR OCULTO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH,
+	_unseal_btn = AstralTheme.button(
+		"%s  DESATAR EL FULGOR OCULTO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH,
 		"DangerButton",
-		"Desata la fuerza dormida bajo su pecho: daño devastador, +35% HP y +2 PA, pero desestabiliza su equilibrio interior."
+		"Desata la fuerza dormida bajo su pecho: daño devastador, +35% HP y +2 PA, pero altera su armonía interior."
 	)
-	unseal_btn.icon = load("res://assets/ui/icon_unseal_power.png")
-	unseal_btn.expand_icon = true
-	unseal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	unseal_btn.custom_minimum_size.y = 54
-	unseal_btn.pressed.connect(_on_card_pressed.bind("unseal"))
-	action_row.add_child(unseal_btn)
-	_card_buttons["unseal"] = unseal_btn
+	_unseal_btn.icon = load("res://assets/ui/icon_unseal_power.png")
+	_unseal_btn.expand_icon = true
+	_unseal_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_unseal_btn.custom_minimum_size.y = 54
+	_unseal_btn.pressed.connect(_on_card_pressed.bind("unseal"))
+	action_row.add_child(_unseal_btn)
+	_card_buttons["unseal"] = _unseal_btn
 
 	var end_btn := AstralTheme.button("%s  Terminar Turno" % AstralTheme.G_BOLT, "PrimaryButton")
 	end_btn.custom_minimum_size = Vector2(180, 54)
@@ -237,12 +238,25 @@ func _refresh_combat() -> void:
 
 	_log_rich.text = "\n".join(ExplorationCombat.combat_log)
 
-	# Actualizar disponibilidad de cartas según PA y cargas
+	# Actualizar disponibilidad y textos dinámicos de cartas según PA, cargas y nivel de secreto
 	var ap: int = ExplorationCombat.player_ap
 	for cid in ["solar_slash", "lotus_guard", "chrono_flux", "companion_skill"]:
 		(_card_buttons[cid] as Button).disabled = (ap < 1)
 	(_card_buttons["starlight_ray"] as Button).disabled = (ap < 2)
 	(_card_buttons["rewind"] as Button).disabled = (ExplorationCombat.rewind_charges <= 0)
+	(_card_buttons["companion_skill"] as Button).text = "%s Técnica de %s (1 PA)\nHabilidad única del compañero" % [
+		AstralTheme.G_HEART, ExplorationCombat.companion_name
+	]
+	(_card_buttons["rewind"] as Button).text = "%s Rebobinado Temporal (0 PA · %d rest.)\nRestaura 40%% HP, +40 Escudo y +2 PA" % [
+		AstralTheme.G_MOON, ExplorationCombat.rewind_charges
+	]
+	if _unseal_btn != null:
+		var tier: int = GameState.get_secret_tier()
+		_unseal_btn.text = "%s  ENTREABRIR EL SELLO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH if tier >= 1 else "%s  DESATAR EL FULGOR OCULTO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH
+		_unseal_btn.tooltip_text = "Libera brevemente la energía de Nyx-Aethel: daño devastador, +35%% HP y +2 PA, a costa de la integridad del Sello." if tier >= 2 else (
+			"Entreabre el Sello interior: daño devastador, +35%% HP y +2 PA, pero reduce el Sello Estelar y sube la Sincronía." if tier == 1 else
+			"Desata la fuerza dormida bajo su pecho: daño devastador, +35%% HP y +2 PA, pero erosiona su Armonía Estelar."
+		)
 	_fit()
 
 func _on_card_pressed(card_id: String) -> void:

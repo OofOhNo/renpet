@@ -117,6 +117,8 @@ func _show_step_vectors() -> void:
 		pv.add_child(AstralTheme.label("Rivales superados: %d / %d  ·  Victorias en Festival: %d" % [
 			int(rivals.get("beaten", 0)), int(rivals.get("total", 4)), int(metrics.get("festival_wins", 0))
 		], "CaptionLabel", AstralTheme.GOOD, true))
+		for rline in rivals.get("lines", []):
+			pv.add_child(AstralTheme.label(str(rline), "CaptionLabel", AstralTheme.MUTED, true))
 		grid.add_child(c_pol)
 
 		var b_next := AstralTheme.button("Leer el Testamento Paternal  ▶", "PrimaryButton")
@@ -143,8 +145,9 @@ func _show_step_testament() -> void:
 
 		var stats_card := AstralTheme.panel("SunkenPanel")
 		stats_card.add_child(AstralTheme.label(
-			"Balance final: Sello %d%%  ·  Anclaje %d  ·  Sincronía %d  ·  Afecto %d%%  ·  Esquirlas %d/5  ·  Mutaciones %d  ·  Sinergias %d  ·  Cartas %d" % [
-				GameState.seal_integrity, GameState.human_anchor, GameState.abyssal_sync, GameState.affection,
+			"Balance final: %s %d%%  ·  Anclaje %d  ·  %s %d  ·  Afecto %d%%  ·  Esquirlas %d/5  ·  Mutaciones %d  ·  Sinergias %d  ·  Cartas %d" % [
+				GameState.get_stat_label("seal_integrity"), GameState.seal_integrity, GameState.human_anchor,
+				GameState.get_stat_label("abyssal_sync"), GameState.abyssal_sync, GameState.affection,
 				int(m.get("shards", 0)), int(m.get("mutations", 0)), int(m.get("synergies", 0)), int(m.get("letters", 0))
 			],
 			"CaptionLabel", AstralTheme.MUTED, true

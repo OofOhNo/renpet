@@ -202,7 +202,7 @@ func _detail_text(act_id: String) -> String:
 		var v: int = int(g["value"])
 		chips.append(AstralTheme.colored("%s %s" % [g["label"], AstralTheme.signed(v)], AstralTheme.GOOD if v > 0 else AstralTheme.BAD))
 	if int(pv["seal_delta"]) != 0:
-		chips.append(AstralTheme.colored("Sello %s%%" % AstralTheme.signed(int(pv["seal_delta"])), AstralTheme.GOOD if int(pv["seal_delta"]) > 0 else AstralTheme.BAD))
+		chips.append(AstralTheme.colored("%s %s%%" % [GameState.get_stat_label("seal_integrity"), AstralTheme.signed(int(pv["seal_delta"]))], AstralTheme.GOOD if int(pv["seal_delta"]) > 0 else AstralTheme.BAD))
 	var st: int = int(pv["stress"])
 	chips.append(AstralTheme.colored("Estrés %s" % AstralTheme.signed(st), AstralTheme.BAD if st > 0 else AstralTheme.GOOD))
 	var money: int = int(pv["gold"])

@@ -240,9 +240,9 @@ func start_expedition(zone_idx: int, comp_id: String, comp_display_name: String)
 	companion_name = comp_display_name
 	companion_bond_bonus = get_companion_affinity_bonus(comp_id)
 
-	player_max_hp = 180 + GameState.temple * 2 + GameState.gravedad
+	player_max_hp = 180 + GameState.temple * 2 + GameState.gravedad + (40 if GameState.has_mutation("sangre_pesada") else 0)
 	player_hp = player_max_hp
-	player_shield = 0
+	player_shield = 15 if GameState.has_mutation("paso_de_luz") else 0
 	player_max_ap = 4 if GameState.has_mutation("paradoja_menor") else 3
 	player_ap = player_max_ap
 	rewind_charges = 2 if GameState.unlocked_synergies.has("ephemeris_weaver") else 1
@@ -295,7 +295,7 @@ func play_combat_card(card_id: String) -> void:
 				base_d = int(round(base_d * 1.25 * companion_bond_bonus))
 			var final_d: int = int(round(base_d * dmg_mult))
 			var stag_d: int = 28 if companion_id == "vespera" else 18
-			_apply_damage_to_enemy(final_d, stag_d, "⚔️ Tajo de Horus")
+			_apply_damage_to_enemy(final_d, stag_d, "⚔ Tajo de Horus")
 
 		"lotus_guard":
 			if player_ap < 1:
@@ -309,7 +309,7 @@ func play_combat_card(card_id: String) -> void:
 			player_shield += sh_gain
 			var heal_v: int = 20 + int(GameState.luminiscencia * 0.12)
 			player_hp = mini(player_max_hp, player_hp + heal_v)
-			combat_log.append("[color=#80DEEA]🛡️ Égida de Loto: +%d Escudo Astral y +%d HP restaurado.[/color]" % [sh_gain, heal_v])
+			combat_log.append("[color=#80DEEA]❀ Égida de Loto: +%d Escudo Astral y +%d HP restaurado.[/color]" % [sh_gain, heal_v])
 
 		"starlight_ray":
 			if player_ap < 2:
@@ -321,7 +321,7 @@ func play_combat_card(card_id: String) -> void:
 			if companion_id == "soren":
 				base_d = int(round(base_d * 1.25 * companion_bond_bonus))
 			var final_d: int = int(round(base_d * dmg_mult))
-			_apply_damage_to_enemy(final_d, 32, "✨ Cometa de Sothis")
+			_apply_damage_to_enemy(final_d, 32, "✦ Cometa de Sothis")
 
 		"chrono_flux":
 			if player_ap < 1:
@@ -352,7 +352,7 @@ func play_combat_card(card_id: String) -> void:
 			player_hp = mini(player_max_hp, player_hp + heal_r)
 			player_ap = mini(player_max_ap + 1, player_ap + 2)
 			player_shield += 40
-			combat_log.append("[color=#FFF176]⏪ REBOBINADO TEMPORAL: El reloj gira hacia atrás (+%d HP, +40 Escudo, +2 PA).[/color]" % heal_r)
+			combat_log.append("[color=#FFF176]☾ REBOBINADO TEMPORAL: El reloj gira hacia atrás (+%d HP, +40 Escudo, +2 PA).[/color]" % heal_r)
 
 		"unseal":
 			# EL BOTÓN TENTADOR: LIBERAR LA RESONANCIA OCULTA / ENTREABRIR EL SELLO (0 PA)
@@ -379,28 +379,28 @@ func _execute_companion_active_skill(dmg_mult: float) -> void:
 	match companion_id:
 		"vespera":
 			var d: int = int(round((70 + GameState.temple * 0.35) * dmg_mult))
-			_apply_damage_to_enemy(d, 40, "❄️ Lanza Ducal de Vespera")
+			_apply_damage_to_enemy(d, 40, "⚔ Lanza Ducal de Vespera")
 		"soren":
 			var d: int = int(round((65 + GameState.erudicion * 0.35) * dmg_mult))
 			player_shield += 35
-			_apply_damage_to_enemy(d, 30, "🔭 Refractor Astral de Soren")
+			_apply_damage_to_enemy(d, 30, "✦ Refractor Astral de Soren")
 		"kaelen":
 			var d: int = int(round((65 + GameState.destreza * 0.35) * dmg_mult))
 			GameState.modify_gold(35)
-			_apply_damage_to_enemy(d, 25, "🗡️ Emboscada de Azogue de Kaelen (+35G)")
+			_apply_damage_to_enemy(d, 25, "⚡ Emboscada de Azogue de Kaelen (+35G)")
 		"cassian":
 			var d: int = int(round((75 + GameState.magnetismo * 0.35) * dmg_mult))
 			player_shield += 40
-			_apply_damage_to_enemy(d, 25, "☀️ Mandato Solar de Cassian")
+			_apply_damage_to_enemy(d, 25, "☀ Mandato Solar de Cassian")
 		"mirari":
 			var heal_m: int = int(round((75 + GameState.luminiscencia * 0.25) * companion_bond_bonus))
 			player_hp = mini(player_max_hp, player_hp + heal_m)
 			player_shield += 50
 			GameState.modify_stat("seal_integrity", 2)
-			combat_log.append("[color=#81C784]🎵 Arpa de Mirari: +%d HP, +50 Escudo y +2%% Integridad del Sello.[/color]" % heal_m)
+			combat_log.append("[color=#81C784]❀ Arpa de Mirari: +%d HP, +50 Escudo y +2%% %s.[/color]" % [heal_m, GameState.get_stat_label("seal_integrity")])
 		"zephyr":
 			var d: int = int(round((95 + GameState.resonancia * 0.45) * dmg_mult))
-			_apply_damage_to_enemy(d, 35, "🌌 Cadenas del Espejo de Zephyr")
+			_apply_damage_to_enemy(d, 35, "☥ Cadenas del Espejo de Zephyr")
 
 func _apply_damage_to_enemy(dmg: int, stagger_add: int, skill_label: String) -> void:
 	enemy_hp = maxi(0, enemy_hp - dmg)
@@ -410,7 +410,7 @@ func _apply_damage_to_enemy(dmg: int, stagger_add: int, skill_label: String) -> 
 		if enemy_stagger >= enemy_max_stagger:
 			enemy_stagger = enemy_max_stagger
 			enemy_staggered = true
-			combat_log.append("[color=#FFF176]★ ¡QUIEBRE DE GUARDIA! %s queda aturdido (Daño x1.5 y pierde su turno).[/color]" % enemy_name)
+			combat_log.append("[color=#FFF176]✦ ¡QUIEBRE DE GUARDIA! %s queda aturdido (Daño x1.5 y pierde su turno).[/color]" % enemy_name)
 	combat_log.append("%s inflige [b]%d[/b] de daño a %s." % [skill_label, dmg, enemy_name])
 
 func end_player_turn() -> void:
@@ -422,8 +422,12 @@ func end_player_turn() -> void:
 		enemy_stagger = 0
 	else:
 		var incoming: int = enemy_atk
-		if companion_id == "kaelen" and (randi() % 100) < 25:
-			combat_log.append("[color=#80DEEA]¡Cortina de humo de Kaelen! Esquivaste por completo el ataque de %s.[/color]" % enemy_name)
+		if GameState.has_mutation("sangre_pesada"):
+			incoming = maxi(1, int(round(incoming * 0.85)))
+		var dodge_chance: int = (25 if companion_id == "kaelen" else 0) + (18 if GameState.has_mutation("paso_de_luz") else 0)
+		if dodge_chance > 0 and (randi() % 100) < dodge_chance:
+			var dodge_src: String = "Cortina de humo de Kaelen" if companion_id == "kaelen" else "Paso de Luz"
+			combat_log.append("[color=#80DEEA]¡%s! Esquivaste por completo el ataque de %s.[/color]" % [dodge_src, enemy_name])
 		else:
 			var blocked: int = mini(player_shield, incoming)
 			player_shield -= blocked
@@ -431,10 +435,15 @@ func end_player_turn() -> void:
 			player_hp = maxi(0, player_hp - hp_loss)
 			combat_log.append("[color=#FF8A80]%s ataca: %d daño (%d absorbido por Escudo).[/color]" % [enemy_name, hp_loss, blocked])
 
+	if GameState.has_mutation("pulso_cristalino") and player_hp > 0:
+		var m_regen: int = maxi(1, int(player_max_hp * 0.08))
+		player_hp = mini(player_max_hp, player_hp + m_regen)
+		combat_log.append("[color=#80DEEA]✦ Pulso Cristalino regenera +%d HP.[/color]" % m_regen)
+
 	if companion_id == "mirari" and player_hp > 0:
 		var regen: int = int(player_max_hp * 0.15)
 		player_hp = mini(player_max_hp, player_hp + regen)
-		combat_log.append("[color=#81C784]🎵 Canto de Mirari regenera +%d HP.[/color]" % regen)
+		combat_log.append("[color=#81C784]❀ Canto de Mirari regenera +%d HP.[/color]" % regen)
 
 	if player_hp <= 0:
 		in_combat = false
@@ -444,7 +453,7 @@ func end_player_turn() -> void:
 		return
 
 	player_ap = player_max_ap
-	player_shield = int(player_shield * 0.35)
+	player_shield = int(player_shield * 0.35) + (15 if GameState.has_mutation("paso_de_luz") else 0)
 	combat_updated.emit()
 
 func retreat_from_combat() -> void:

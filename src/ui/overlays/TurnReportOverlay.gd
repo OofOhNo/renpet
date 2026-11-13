@@ -86,7 +86,7 @@ func _block_card(b: Dictionary) -> Control:
 	for g in b["gains"]:
 		chips.append(AstralTheme.colored("%s %s" % [g["label"], AstralTheme.signed(int(g["delta"]))], AstralTheme.GOOD if int(g["delta"]) > 0 else AstralTheme.BAD))
 	if int(b["seal_delta"]) != 0:
-		chips.append(AstralTheme.colored("Sello %s%%" % AstralTheme.signed(int(b["seal_delta"])), AstralTheme.GOOD if int(b["seal_delta"]) > 0 else AstralTheme.BAD))
+		chips.append(AstralTheme.colored("%s %s%%" % [GameState.get_stat_label("seal_integrity"), AstralTheme.signed(int(b["seal_delta"]))], AstralTheme.GOOD if int(b["seal_delta"]) > 0 else AstralTheme.BAD))
 	var st: int = int(b["stress_delta"])
 	chips.append(AstralTheme.colored("Estrés %s" % AstralTheme.signed(st), AstralTheme.BAD if st > 0 else AstralTheme.GOOD))
 	v.add_child(AstralTheme.rich("  ·  ".join(chips)))

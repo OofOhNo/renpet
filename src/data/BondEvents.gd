@@ -12,7 +12,7 @@ const EVENTS: Dictionary = {
 	"soren": {
 		1: {
 			"title": "El Mapa Prohibido de la Madre de Soren",
-			"narrative": "A medianoche en la Torre de Cristal, Soren te muestra temblando el papiro sellado por el que desterraron a su madre: las ecuaciones demuestran que la estrella que cayó hace doce años no era un regalo divino, sino una celda.\n\n«Si el Archimago descubre que conservo este mapa me expulsarán, Renpet... pero tenía que mostrarte la verdad sobre tu corazón.»",
+			"narrative": "A medianoche en la Torre de Cristal, Soren te muestra temblando el papiro sellado por el que desterraron a su madre: las ecuaciones demuestran que la estrella que cayó hace doce años no figura en ningún atlas antiguo y alguien borró su órbita de los registros del Santuario.\n\n«Si el Archimago descubre que conservo este mapa me expulsarán, Renpet... pero tenía que mostrarte que nos ocultan la verdad sobre tu origen.»",
 			"choices": [
 				{"kind": "friend", "label": "Prometer alianza: «Gracias por confiar en mí, amigo mío. Limpiaremos el nombre de tu madre.»",
 					"affection": 24, "respect": 24, "spark": 0, "stat_effects": {"erudicion": 20, "human_anchor": 8},
@@ -153,7 +153,7 @@ const EVENTS: Dictionary = {
 	"cassian": {
 		1: {
 			"title": "El Decreto Secreto del Solsticio",
-			"narrative": "Durante un baile de gala en el Palacio de Alabastro, el Príncipe Cassian te conduce tras las columnas de loto. Tiene el rostro pálido.\n\n«Renpet, acabo de leer las actas secretas de mi padre y del Sumo Sacerdote... Creen que cuando cumplas veinte años, la Diosa regresará a reclamar tu estrella para alimentar el Reloj Imperial.»",
+			"narrative": "Durante un baile de gala en el Palacio de Alabastro, el Príncipe Cassian te conduce tras las columnas de loto. Tiene el rostro pálido.\n\n«Renpet, acabo de leer los archivos reservados de mi padre y del Sumo Sacerdote... Tu nombre aparece ligado a un rito antiguo cuando cumplas veinte años. La Corona teme lo que oculta la estrella en tu interior.»",
 			"choices": [
 				{"kind": "friend", "label": "Forjar un pacto político: «Seré tu aliada para reformar el Senado antes del Solsticio.»",
 					"affection": 20, "respect": 28, "spark": 0, "stat_effects": {"gracia": 20, "erudicion": 15},
@@ -200,11 +200,11 @@ const EVENTS: Dictionary = {
 	"mirari": {
 		1: {
 			"title": "La Canción de los Dos Latidos",
-			"narrative": "En el Anfiteatro vacío al atardecer, Mirari apoya su oído sobre tu pecho mientras pulsa un acorde de plata en su arpa.\n\n«Escucho a la niña que ama a su padre... y escucho al espíritu de la estrella llorando tras los barrotes de oro. Si ambos siguen peleando, tu alma se romperá.»",
+			"narrative": "En el Anfiteatro vacío al atardecer, Mirari apoya su oído sobre tu pecho mientras pulsa un acorde de plata en su arpa.\n\n«Escucho a la niña que ama a su padre... y escucho una voz antigua susurrando bajo luces doradas. Si ambos siguen peleando, tu alma se romperá.»",
 			"choices": [
 				{"kind": "friend", "label": "Pedirle que armonice ambos latidos para proteger a tu familia.",
 					"affection": 24, "respect": 24, "spark": 0, "stat_effects": {"human_anchor": 10, "seal_integrity": 8},
-					"outcome": "Mirari te bendice con el Himno de la Palma Eterna, fortaleciendo tu Sello y tu corazón mortal."},
+					"outcome": "Mirari te bendice con el Himno de la Palma Eterna, fortaleciendo tu estrella y tu corazón mortal."},
 				{"kind": "rival", "label": "Hacer vibrar las cuerdas con poder abisal: «No necesito que nadie domestique mi tormenta.»",
 					"affection": -25, "respect": 10, "spark": 0, "stat_effects": {"resonancia": 25, "abyssal_sync": 10},
 					"outcome": "Una cuerda del arpa de Mirari se rompe con un chispazo púrpura. Ella reza en silencio por tu destino."},

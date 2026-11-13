@@ -34,10 +34,12 @@ func _ready() -> void:
 	check(GameState.daughter_name == "Luna" and GameState.prologue_completed, "creación del héroe")
 	check(GameState.erudicion >= 170, "bono del arquetipo Sabio")
 
-	for w in ["schedule", "status", "hearth", "crucible", "town"]:
+	for w in ["schedule", "status", "hearth", "crucible", "town", "explore"]:
 		hub.debug_open_window(w)
 		await frames(3)
 		check(hub._windows[w].visible, "ventana %s no visible" % w)
+	hub._windows["explore"].open_festival_tab()
+	await frames(2)
 
 	# Chimenea: elegir tópico y actitud
 	hub.debug_open_window("hearth")
@@ -110,11 +112,31 @@ func _ready() -> void:
 		if hub._letter.visible:
 			hub._letter.hide_overlay()
 			await frames(2)
+		if hub._story.visible:
+			var s_btns: Array = _all_buttons(hub._story)
+			check(s_btns.size() >= 1, "evento de historia sin opciones")
+			if s_btns.size() >= 1:
+				s_btns[0].pressed.emit()
+				await frames(2)
+				var c_btns: Array = _all_buttons(hub._story)
+				check(c_btns.size() == 1, "botón Continuar en evento de historia")
+				if c_btns.size() >= 1:
+					c_btns[0].pressed.emit()
+					await frames(3)
 		if hub._ending.visible:
 			break
 		hub._busy = false
 	check(TimeManager.campaign_over, "la campaña debería terminar")
 	check(hub._ending.visible, "pantalla final visible")
+	if hub._ending.visible:
+		for step_name in ["climax", "vectores", "testamento"]:
+			var ebtns: Array = _all_buttons(hub._ending)
+			check(ebtns.size() >= 1, "EndingOverlay paso %s sin botones" % step_name)
+			if ebtns.size() >= 1:
+				ebtns[0].pressed.emit()
+				await frames(3)
+		check(ConstellationTapestry.discovered_endings.size() >= 1, "final registrado en El Tapiz")
+		check(ConstellationTapestry.astral_points > 0, "puntos astrales NG+ otorgados")
 	check(Chronicle.letters_archive.size() == 8, "8 cartas")
 	print("\n==== UI SMOKE: %d fallos ====" % failures)
 	get_tree().quit(1 if failures > 0 else 0)
@@ -122,6 +144,8 @@ func _ready() -> void:
 func _all_buttons(n: Node) -> Array:
 	var out: Array = []
 	for c in n.get_children():
+		if c is CanvasItem and not c.visible:
+			continue
 		if c is Button:
 			out.append(c)
 		out.append_array(_all_buttons(c))

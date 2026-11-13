@@ -1,7 +1,7 @@
 extends SceneTree
 ## Uso: godot --path . --script tools/screenshot.gd -- <escena> <salida.png> [acciones separadas por coma]
 ## Carga una escena, espera unos fotogramas y guarda una captura del viewport.
-## Acciones soportadas: open:<ventana> (schedule, status, fireplace, crucible, town), prologue_off
+## Acciones soportadas: open:<ventana> (schedule, status, hearth, crucible, town, explore), prologue_off
 
 func _init() -> void:
 	await process_frame
