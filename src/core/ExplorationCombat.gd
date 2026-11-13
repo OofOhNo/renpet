@@ -345,9 +345,11 @@ func play_combat_card(card_id: String) -> void:
 			var base_d: int = 45 + int((GameState.temple + GameState.destreza) * 0.35)
 			if companion_id == "vespera":
 				base_d = int(round(base_d * 1.25 * companion_bond_bonus))
+			elif companion_id == "caelum":
+				base_d = int(round(base_d * 1.20 * companion_bond_bonus))
 			var final_d: int = int(round(base_d * dmg_mult))
 			next_atk_bonus_pct = 0.0
-			var stag_d: int = 28 if companion_id == "vespera" else 18
+			var stag_d: int = 28 if companion_id == "vespera" else (24 if companion_id == "caelum" else 18)
 			combat_fx.emit("slash")
 			_apply_damage_to_enemy(final_d, stag_d, "⚔ Tajo de Horus")
 
@@ -360,6 +362,9 @@ func play_combat_card(card_id: String) -> void:
 			var sh_gain: int = 45 + int((GameState.gracia + GameState.gravedad) * 0.35)
 			if companion_id == "cassian":
 				sh_gain = int(round(sh_gain * 1.20))
+			elif companion_id == "lyra":
+				sh_gain = int(round(sh_gain * 1.18 * companion_bond_bonus))
+				GameState.modify_stat("stress", -1)
 			player_shield += sh_gain
 			var heal_v: int = 20 + int(GameState.luminiscencia * 0.12)
 			player_hp = mini(player_max_hp, player_hp + heal_v)
@@ -541,6 +546,16 @@ func _play_memory_card(card_id: String) -> void:
 			var d: int = int(round((115 + GameState.resonancia * 0.48) * dmg_mult))
 			combat_fx.emit("magic")
 			_apply_damage_to_enemy(d, 35, "☥ " + str(card["name"]))
+		"mem_bond_lyra":
+			player_hp = mini(player_max_hp, player_hp + 70)
+			player_shield += 65
+			GameState.modify_stat("stress", -4)
+			combat_fx.emit("shield")
+			combat_log.append("[color=#f59ec8]❀ %s: +70 HP, +65 Escudo y -4 Estrés.[/color]" % card["name"])
+		"mem_bond_caelum":
+			var d: int = int(round((105 + GameState.destreza * 0.42) * dmg_mult))
+			combat_fx.emit("slash")
+			_apply_damage_to_enemy(d, 34, "⚔ " + str(card["name"]))
 	_check_enemy_defeat_or_continue()
 
 func _execute_companion_active_skill(dmg_mult: float) -> void:
@@ -570,6 +585,16 @@ func _execute_companion_active_skill(dmg_mult: float) -> void:
 			var d: int = int(round((95 + GameState.resonancia * 0.45) * dmg_mult))
 			var z_skill: String = "☥ Cadenas del Espejo de Zephyr" if GameState.get_secret_tier() >= 2 else "☥ Reflejo del Estanque Nocturno"
 			_apply_damage_to_enemy(d, 35, z_skill)
+		"lyra":
+			var heal_l: int = int(round((55 + GameState.gracia * 0.24) * companion_bond_bonus))
+			player_hp = mini(player_max_hp, player_hp + heal_l)
+			player_shield += int(round(48 * companion_bond_bonus))
+			GameState.modify_stat("stress", -2)
+			combat_log.append("[color=#f59ec8]❀ Arpa Imperial de Lady Lyra: +%d HP, +%d Escudo y -2 Estrés.[/color]" % [heal_l, int(round(48 * companion_bond_bonus))])
+		"caelum":
+			var d: int = int(round((84 + (GameState.destreza + GameState.temple) * 0.28) * dmg_mult))
+			player_shield += 18
+			_apply_damage_to_enemy(d, 32, "⚔ Mandoble del Perro Gris (Caelum)")
 		_:
 			var d: int = int(round((60 + (GameState.temple + GameState.destreza) * 0.18) * dmg_mult))
 			player_shield += 28

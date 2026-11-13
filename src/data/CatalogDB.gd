@@ -304,15 +304,15 @@ const GIFTS: Array[Dictionary] = [
 	{"id": "quartz_lens", "name": "Lente de Cuarzo Tallado", "price": 45, "shop": "aqueducts",
 		"desc": "Óptica de precisión para observar astros o mecanismos.", "favs": ["soren", "mirari"]},
 	{"id": "star_candy", "name": "Confitura de Miel Estelar", "price": 38, "shop": "aqueducts",
-		"desc": "Dulce artesanal muy apreciado entre aprendices y centinelas.", "favs": ["kaelen", "vespera", "zephyr"]},
+		"desc": "Dulce artesanal muy apreciado entre aprendices y centinelas.", "favs": ["kaelen", "vespera", "zephyr", "caelum"]},
 	{"id": "herbal_elixir", "name": "Infusión de Lirio Plateado", "price": 50, "shop": "aqueducts",
-		"desc": "Tisana calmante contra el frío nocturno.", "favs": ["kaelen", "soren"]},
+		"desc": "Tisana calmante contra el frío nocturno.", "favs": ["kaelen", "soren", "caelum"]},
 	{"id": "silver_rose", "name": "Rosa Filigranada de Plata", "price": 75, "shop": "palace",
-		"desc": "Distinción refinada de la orfebrería imperial.", "favs": ["vespera", "cassian"]},
+		"desc": "Distinción refinada de la orfebrería imperial.", "favs": ["vespera", "cassian", "lyra"]},
 	{"id": "silk_poetry", "name": "Cantoral Iluminado en Seda", "price": 62, "shop": "palace",
-		"desc": "Versos y partituras encuadernadas con hilo dorado.", "favs": ["mirari", "soren", "zephyr"]},
+		"desc": "Versos y partituras encuadernadas con hilo dorado.", "favs": ["mirari", "soren", "zephyr", "lyra"]},
 	{"id": "brass_compass", "name": "Brújula Solar de Bolsillo", "price": 68, "shop": "palace",
-		"desc": "Instrumento noble de orientación y estrategia.", "favs": ["cassian", "vespera"]}
+		"desc": "Instrumento noble de orientación y estrategia.", "favs": ["cassian", "vespera", "caelum"]}
 ]
 
 # ==============================================================================
@@ -370,7 +370,13 @@ const MEMORY_CARDS: Array[Dictionary] = [
 		"desc": "Melodía sanadora: +95 HP, +55 Escudo y +2% Sello."},
 	{"id": "mem_bond_zephyr", "name": "Espejo Nocturno", "unlock": "bond:zephyr:2",
 		"source_label": "Vínculo del Espejo (Etapa 2+)", "ap": 1, "kind": "magic", "fest_bonus": 36,
-		"desc": "Fuego dual: 115 + (Resonancia×0.48) daño sin dañar tu armonía."}
+		"desc": "Fuego dual: 115 + (Resonancia×0.48) daño sin dañar tu armonía."},
+	{"id": "mem_bond_lyra", "name": "Cadenza de la Rosa de Alabastro", "unlock": "bond:lyra:2",
+		"source_label": "Vínculo Lyra (Etapa 2+)", "ap": 1, "kind": "defense", "fest_bonus": 38,
+		"desc": "Recital Imperial: cura +70 HP, otorga +65 Escudo y alivia -4 Estrés."},
+	{"id": "mem_bond_caelum", "name": "Colmillo del Perro Gris", "unlock": "bond:caelum:2",
+		"source_label": "Vínculo Caelum (Etapa 2+)", "ap": 1, "kind": "attack", "fest_bonus": 34,
+		"desc": "Emboscada de Caravana: 105 + (Destreza×0.42) daño y +34 Quiebre."}
 ]
 
 # Migración de partidas antiguas (nombres de mutación -> id)

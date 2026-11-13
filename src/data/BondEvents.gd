@@ -290,6 +290,100 @@ const EVENTS: Dictionary = {
 					"outcome": "Zephyr sonríe con una ternura antigua. «Entonces desafiemos juntos al firmamento, carcelera mía.»"}
 			]
 		}
+	},
+	"lyra": {
+		1: {
+			"title": "La Rosa de los Salones de Alabastro",
+			"narrative": "Tras una lección en el Conservatorio Real, Lady Lyra cierra el paso con su abanico de nácar frente a un corro de jóvenes nobles. Sobre una mesa aguardan dos arpas gemelas de cristal y una copa de té helado.\n\n«Todos susurran que la pupila del Héroe brilla más que las casas antiguas, Renpet. Veamos si tus dedos conocen la cadencia imperial... o si solo eres ruido de cuartel vestido de seda.»",
+			"choices": [
+				{"kind": "friend", "label": "Acompañar su ritmo con una segunda voz: «Un dúo suena mejor que una rivalidad estéril, Lyra.»",
+					"affection": 24, "respect": 24, "spark": 0, "stat_effects": {"gracia": 20, "magnetismo": 14, "human_anchor": 6},
+					"outcome": "Las arpas vibran al unísono ante la sala atónita. Por primera vez, la sonrisa calculada de Lyra se vuelve genuina."},
+				{"kind": "rival", "label": "Superar su pasaje a doble velocidad: «Aprende a medir el compás antes de juzgar a mi familia.»",
+					"affection": -26, "respect": 20, "spark": 0, "stat_effects": {"magnetismo": 22, "temple": 12},
+					"outcome": "Lyra aprieta el abanico hasta hacer crujir el nácar y acepta tu desafío: «En la gala de otoño no tendrás tanta suerte.»"},
+				{"kind": "romance", "label": "Inclinarte rozando su guante de encaje: «Si tú marcas la música, bailaré cualquier salón contigo.»",
+					"affection": 24, "respect": 18, "spark": 28, "stat_effects": {"gracia": 18, "magnetismo": 18},
+					"outcome": "El abanico de Lyra se detiene frente a sus labios para ocultar el rubor. Te cita en los jardines al anochecer."}
+			]
+		},
+		2: {
+			"title": "El Abanico Detrás del Rumor",
+			"narrative": "A medianoche escuchas acordes quebrados en la galería vacía del Palacio de Alabastro. Encuentras a Lady Lyra sola, con los nudillos vendados por las cuerdas tensas y tres cartas selladas por acreedores del Senado sobre su atril.\n\n«No me mires así... Si pierdo el favor del Emperador en las galas de este año, la Casa Meridia perderá hasta su apellido. No necesito la lástima de nadie.»",
+			"choices": [
+				{"kind": "friend", "label": "Sentarte junto a ella y ayudarla a revisar las partituras y las cuentas hasta el alba.",
+					"affection": 28, "respect": 26, "spark": 0, "stat_effects": {"gracia": 22, "human_anchor": 10},
+					"outcome": "Lyra baja la guardia entre lágrimas contenidas y te entrega el broche de plata de su familia como promesa de lealtad."},
+				{"kind": "rival", "label": "«La corte no perdona la debilidad, Lyra. Si tu casa cae, que sea peleando en el escenario.»",
+					"affection": -28, "respect": 24, "spark": 8, "stat_effects": {"magnetismo": 24, "gravedad": 12},
+					"outcome": "Lyra se seca los ojos con orgullo helado: «Tienes razón. Nadie vendrá a salvarme... y mucho menos tú.»"},
+				{"kind": "romance", "label": "Vendar con cuidado sus dedos heridos: «No tienes que sostener toda una casa noble tú sola.»",
+					"affection": 26, "respect": 20, "spark": 28, "stat_effects": {"gracia": 20, "human_anchor": 8},
+					"outcome": "Lyra apoya la frente contra tu hombro en silencio, soltando al fin la máscara impecable de la corte."}
+			]
+		},
+		3: {
+			"title": "El Juicio de la Etiqueta Imperial",
+			"narrative": "En vísperas del Gran Salón del Solsticio, un senador aliado de la Inquisición acusa públicamente a la Casa Meridia de patrocinar piezas prohibidas. Lyra permanece inmóvil bajo la mirada de cien aristócratas, buscando un apoyo entre la multitud.\n\n«Si me hundo hoy, nadie volverá a escuchar una nota de mi arpa. ¿De qué lado de la sala te pones esta noche, Renpet?»",
+			"choices": [
+				{"kind": "friend", "label": "Subir al estrado junto a ella y usar tu prestigio para silenciar al senador y defender su casa.",
+					"affection": 34, "respect": 32, "spark": 0, "stat_effects": {"gracia": 26, "magnetismo": 24, "father_reputation": 6},
+					"outcome": "El salón estalla en aplausos. Lyra jura convertir la influencia de la Casa Meridia en tu escudo dentro del Senado."},
+				{"kind": "rival", "label": "Reclamar el estrado para tu propio recital y dejar que resuelva su propia intriga.",
+					"affection": -40, "respect": 20, "spark": 0, "stat_effects": {"magnetismo": 28, "entropia": 6},
+					"outcome": "Lyra sobrevive a la sesión por pura astucia fría, pero jura destruir tu reputación en la corte a cualquier precio."},
+				{"kind": "romance", "label": "Ofrecerle la mano ante toda la nobleza: «Que hablen lo que quieran; la Casa Meridia camina conmigo.»",
+					"affection": 34, "respect": 28, "spark": 30, "stat_effects": {"gracia": 24, "magnetismo": 26, "human_anchor": 10},
+					"outcome": "Lyra entrelaza sus dedos con los tuyos frente a todo el Palacio, sellando ante la corte que vuestro destino es inseparable."}
+			]
+		}
+	},
+	"caelum": {
+		1: {
+			"title": "El Sabueso de las Caravanas",
+			"narrative": "Una tormenta azota los establos del Patio Ducal mientras llega una caravana retrasada. Un eje partido amenaza con volcar cajones de suministros médicos sobre el barro. Caelum sostiene la viga con los dientes apretados y te lanza un cabo de cuerda.\n\n«¡A ver si los guantes limpios de la hija del Héroe sirven para algo más que saludar desde los balcones! ¡Tira antes de que se hunda el carro!»",
+			"choices": [
+				{"kind": "friend", "label": "Calzarte en el barro y asegurar el eje hombro con hombro con él bajo la lluvia.",
+					"affection": 24, "respect": 26, "spark": 0, "stat_effects": {"destreza": 20, "temple": 14, "human_anchor": 6},
+					"outcome": "Cuando salvan el cargamento, Caelum suelta una carcajada ronca y te ofrece un sorbo de su cantimplora como a una igual."},
+				{"kind": "rival", "label": "Tomar el mando de los mozos y demostrar que tu técnica levanta el carro más rápido que su fuerza bruta.",
+					"affection": -24, "respect": 24, "spark": 0, "stat_effects": {"destreza": 22, "gravedad": 12},
+					"outcome": "Caelum chasquea la lengua con una sonrisa torcida de lobo: «Tienes colmillos detrás de esa cara fina. Vamos a ver cuánto aguantas.»"},
+				{"kind": "romance", "label": "Secar la lluvia de su cicatriz con tu pañuelo tras salvar el carro: «No sabía que un sabueso protegiera así a los suyos.»",
+					"affection": 24, "respect": 20, "spark": 28, "stat_effects": {"destreza": 18, "temple": 16},
+					"outcome": "Caelum se queda inmóvil un segundo bajo tu tacto y desvía la mirada, gruñendo entre dientes que no sabe tratar con damas."}
+			]
+		},
+		2: {
+			"title": "Cicatrices de la Guardia Vieja",
+			"narrative": "En un puente apartado de los Acueductos, Caelum afila su mandoble junto a una fogata pequeña. De su cuello cuelga media insignia abollada del mismo escuadrón fronterizo en el que sirvió tu padre hace quince años.\n\n«Mi hermano mayor murió cubriendo una retirada bajo las órdenes del gran Héroe Aurelius... Durante años odié vuestro apellido, Renpet. Ahora que te veo pelear sin esconderte, ya no sé qué creer.»",
+			"choices": [
+				{"kind": "friend", "label": "Escucharlo en silencio y prometerle averiguar la verdad de aquella batalla junto a tu padre.",
+					"affection": 30, "respect": 28, "spark": 0, "stat_effects": {"temple": 20, "human_anchor": 12},
+					"outcome": "Caelum guarda la insignia en calma y asiente: «Si tú me das tu palabra, niña, vale más que un decreto del Emperador.»"},
+				{"kind": "rival", "label": "«La frontera fue brutal para todos. No uses a los muertos como excusa para mirar con rencor.»",
+					"affection": -30, "respect": 22, "spark": 6, "stat_effects": {"temple": 22, "gravedad": 16},
+					"outcome": "Los ojos áureos de Caelum se encienden de rabia fría: «Entonces resolveremos las cuentas antiguas con acero limpio.»"},
+				{"kind": "romance", "label": "Sentarte junto al fuego apoyando tu mano sobre su muñeca: «No cargues solo con fantasmas de otra guerra.»",
+					"affection": 26, "respect": 22, "spark": 28, "stat_effects": {"destreza": 20, "human_anchor": 10},
+					"outcome": "Caelum cierra su mano grande sobre la tuya junto a las brasas. «Contigo cerca, las pesadillas se callan un poco.»"}
+			]
+		},
+		3: {
+			"title": "El Último Contrato del Perro Gris",
+			"narrative": "Al caer la tarde en el Patio Ducal, Caelum aparece con un pergamino sellado por el Gremio de Caza: le ofrecen el rango de Capitán de la Guardia si sabotea las escoltas y suministros de tu familia antes del Solsticio.\n\n«Lo pagaron por adelantado en oro imperial. Vine a enseñártelo antes de firmar... o antes de romperles el sello en la cara. Dime qué somos tú y yo, Renpet.»",
+			"choices": [
+				{"kind": "friend", "label": "«Somos compañeros de guardia. Quema ese contrato y cubramos juntos la espalda de Aethelgard.»",
+					"affection": 34, "respect": 34, "spark": 0, "stat_effects": {"destreza": 26, "temple": 22, "gold": 120},
+					"outcome": "Caelum parte el pergamino en dos con su daga y jura lealtad a tu estandarte por encima de cualquier gremio."},
+				{"kind": "rival", "label": "«Fírmalo si quieres oro manchado. Nos veremos filo contra filo en el campo.»",
+					"affection": -42, "respect": 24, "spark": 0, "stat_effects": {"gravedad": 24, "destreza": 18},
+					"outcome": "Caelum escupe al suelo y guarda el contrato: «Así se habla, cachorra de héroe. Que gane el que quede en pie.»"},
+				{"kind": "romance", "label": "«No aceptes cadenas de oro ajeno. Quédate a mi lado cuando todo esto termine.»",
+					"affection": 34, "respect": 28, "spark": 30, "stat_effects": {"destreza": 24, "human_anchor": 12},
+					"outcome": "Caelum arroja la bolsa del gremio al canal y te sonríe con una paz feroz: «Por primera vez en la vida, tengo alguien a quien volver.»"}
+			]
+		}
 	}
 }
 

@@ -418,6 +418,10 @@ func _evaluate_bonds_vector(branch_id: String) -> Dictionary:
 			nemesis_text = "✦ Némesis — %s: Incapaz de perdonar las afrentas al orden solar, Mirari derramó lágrimas heladas y entonó el «Canto de Clausura» junto a los paladines antes de que el Solsticio sellara su fractura definitiva." % nemesis_name
 		elif nemesis_id == "vespera":
 			nemesis_text = "⚔ Némesis — %s: Su rivalidad de acero culminó en un duelo juramentado bajo la luna llena; incluso tras caer derrotada, Vespera prometió no olvidar jamás aquella hoja." % nemesis_name
+		elif nemesis_id == "lyra":
+			nemesis_text = "❀ Némesis — %s: El desdén en los salones de alabastro se transformó en guerra abierta; Lady Lyra utilizó todo el peso de su casa para cerrar las puertas de la corte tras el Solsticio." % nemesis_name
+		elif nemesis_id == "caelum":
+			nemesis_text = "⚡ Némesis — %s: Un contrato roto y cicatrices sin sanar los enfrentaron filo contra filo en los muros de Aethelgard; Caelum juró saldar cuentas allá donde vuelvan a cruzarse." % nemesis_name
 		else:
 			nemesis_text = "☠ Némesis — %s: La hostilidad acumulada convirtió antiguos encuentros en una fractura irreparable durante la crisis de los veinte años." % nemesis_name
 
@@ -460,6 +464,14 @@ func _compose_companion_epilogue(npc_id: String, mode: String, branch_id: String
 			if mode == "romance" or mode == "tension":
 				return "[b]Zephyr[/b] —el Lucero del Cambio— dejó atrás mil años de soledad tras el cristal para vivir cada amanecer humano al lado de %s." % d_name
 			return "[b]Zephyr[/b] y %s sellaron un pacto de confianza mutua sin cadenas, demostrando que ningún destino debe ser prisión." % d_name
+		"lyra":
+			if mode == "romance" or mode == "tension":
+				return "[b]Lady Lyra de Meridia[/b] bajó al fin su abanico de corte y compartió escenario, fortuna y vida junto a %s sin esconderse tras rumores." % d_name
+			return "[b]Lady Lyra[/b] salvó el prestigio de la Casa Meridia y convirtió los salones del Senado en el respaldo político más firme de %s." % d_name
+		"caelum":
+			if mode == "romance" or mode == "tension":
+				return "Tras quemar su último contrato mercenario, [b]Caelum 'El Perro Gris'[/b] abandonó la vida errante para cubrir el flanco —y el hogar— junto a %s." % d_name
+			return "[b]Caelum[/b] alzó su propia compañía de guardia leal a las puertas del reino, protegiendo las rutas de Aethelgard codo con codo con %s." % d_name
 	return ""
 
 func _evaluate_rivals_vector() -> Dictionary:

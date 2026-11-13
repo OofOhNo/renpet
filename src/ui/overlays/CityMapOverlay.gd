@@ -17,7 +17,8 @@ signal state_changed()
 
 const NPC_COLORS: Dictionary = {
 	"soren": Color("49d6c8"), "vespera": Color("ff9f5a"), "kaelen": Color("86e3a6"),
-	"cassian": Color("f7e3a1"), "mirari": Color("ab80f7"), "zephyr": Color("ff6b98")
+	"cassian": Color("f7e3a1"), "mirari": Color("ab80f7"), "zephyr": Color("ff6b98"),
+	"lyra": Color("f29ec7"), "caelum": Color("aebdcc")
 }
 const NPC_PORTRAITS: Dictionary = {
 	"soren": "res://assets/ui/npc_soren.png",
@@ -25,7 +26,9 @@ const NPC_PORTRAITS: Dictionary = {
 	"kaelen": "res://assets/ui/npc_kaelen.png",
 	"cassian": "res://assets/ui/npc_cassian.png",
 	"mirari": "res://assets/ui/npc_mirari.png",
-	"zephyr": "res://assets/ui/npc_zephyr.png"
+	"zephyr": "res://assets/ui/npc_zephyr.png",
+	"lyra": "res://assets/ui/npc_lyra.png",
+	"caelum": "res://assets/ui/npc_caelum.png"
 }
 
 const DISTRICTS: Array[Dictionary] = [
@@ -37,14 +40,14 @@ const DISTRICTS: Array[Dictionary] = [
 		"stroll": "Suben al mirador estelar y comparten panecillos calientes entre planos celestes."
 	},
 	{
-		"id": "palacio", "npc": "cassian", "name": "Palacio de Alabastro",
+		"id": "palacio", "npc": "cassian", "secondary_npc": "lyra", "name": "Palacio de Alabastro",
 		"px": 0.50, "py": 0.20, "stat": "magnetismo",
 		"facility": "Boutique · Joyería · Senado",
 		"ambient": "Cúpulas doradas rodean los jardines reales, la sastrería de gala imperial y las escalinatas del Senado.",
 		"stroll": "Recorren los rosedales imperiales observando el relevo de la guardia solar."
 	},
 	{
-		"id": "patio", "npc": "vespera", "name": "Patio Ducal de Armas",
+		"id": "patio", "npc": "vespera", "secondary_npc": "caelum", "name": "Patio Ducal de Armas",
 		"px": 0.82, "py": 0.26, "stat": "temple",
 		"facility": "Expediciones · Esgrima",
 		"ambient": "Estandartes dorados ondean sobre los muros desde donde parten las patrullas hacia las ruinas.",
@@ -149,6 +152,11 @@ var _last_npc_id: String = ""
 var _last_reply: String = ""
 var _last_effects: String = ""
 var _gift_select: OptionButton
+var _outing_select: OptionButton
+var _selected_npc_by_district: Dictionary = {}
+var _cross_result_title: String = ""
+var _cross_result_body: String = ""
+var _cross_result_fx: String = ""
 
 var _selected_comp: String = "solo"
 var _facility_tab_by_district: Dictionary = {}
@@ -326,6 +334,9 @@ func open_city(district_id: String = "") -> void:
 	_current_district = district_id
 	_last_reply = ""
 	_last_effects = ""
+	_cross_result_title = ""
+	_cross_result_body = ""
+	_cross_result_fx = ""
 	refresh()
 	if DisplayServer.get_name() != "headless":
 		modulate.a = 0.0
@@ -357,6 +368,9 @@ func _switch_to_map() -> void:
 	_current_district = ""
 	_last_reply = ""
 	_last_effects = ""
+	_cross_result_title = ""
+	_cross_result_body = ""
+	_cross_result_fx = ""
 	refresh()
 
 func _enter_district(dist_id: String) -> void:
@@ -364,6 +378,9 @@ func _enter_district(dist_id: String) -> void:
 	_current_district = dist_id
 	_last_reply = ""
 	_last_effects = ""
+	_cross_result_title = ""
+	_cross_result_body = ""
+	_cross_result_fx = ""
 	refresh()
 
 func refresh() -> void:
@@ -405,11 +422,16 @@ func _refresh_map_view() -> void:
 	for d in DISTRICTS:
 		var did: String = str(d["id"])
 		var npc_id: String = str(d["npc"])
+		var sec_id: String = str(d.get("secondary_npc", ""))
 		var avail: bool = RelationshipManager.is_available(npc_id)
 		var known: bool = avail and RelationshipManager.is_known(npc_id)
+		var sec_avail: bool = (sec_id != "") and RelationshipManager.is_available(sec_id)
 		var data: Dictionary = RelationshipManager.get_data(npc_id)
 		var bond_ev: Dictionary = RelationshipManager.get_next_bond_event(npc_id) if avail else {}
-		var has_ev: bool = bool(bond_ev.get("ok", false))
+		var sec_ev: Dictionary = RelationshipManager.get_next_bond_event(sec_id) if sec_avail else {}
+		var cross_ev: Dictionary = RelationshipManager.get_available_cross_encounter(did)
+		var has_cross: bool = not cross_ev.is_empty()
+		var has_ev: bool = bool(bond_ev.get("ok", false)) or bool(sec_ev.get("ok", false)) or has_cross
 		var is_fest: bool = (did == "anfiteatro" and TimeManager.is_festival_bimester() and not ExplorationCombat.festival_entered_this_year)
 
 		var marker := PanelContainer.new()
@@ -454,6 +476,10 @@ func _refresh_map_view() -> void:
 
 		var short_d: String = str(d["name"]).replace("Palacio de Alabastro", "Palacio").replace("Torre de Cristal", "Torre")
 		var npc_tag: String = "?" if not known else str(data["name"]).split(" ")[0]
+		if sec_avail:
+			var sec_known: bool = RelationshipManager.is_known(sec_id)
+			var sec_data: Dictionary = RelationshipManager.get_data(sec_id)
+			npc_tag += "/" + (str(sec_data.get("name", "?")).split(" ")[0] if sec_known else "?")
 		var tag_col: Color = AstralTheme.GOLD if (has_ev or is_fest) else (AstralTheme.GOLD_PALE if (not avail or known) else AstralTheme.TURQ)
 		var hdr_txt: String = ("%s · %s" % [short_d, npc_tag]) if avail else short_d
 		var hdr := AstralTheme.label(hdr_txt, "CaptionLabel", tag_col)
@@ -461,7 +487,8 @@ func _refresh_map_view() -> void:
 		hdr.clip_text = true
 		info.add_child(hdr)
 
-		var sub_txt: String = "✦ FESTIVAL" if is_fest else ("★ Escena" if has_ev else str(d["facility"]))
+		var has_story: bool = bool(bond_ev.get("ok", false)) or bool(sec_ev.get("ok", false))
+		var sub_txt: String = "✦ FESTIVAL" if is_fest else ("★ Escena" if has_story else ("✦ Encuentro" if has_cross else str(d["facility"])))
 		var sub := AstralTheme.label(sub_txt, "CaptionLabel", AstralTheme.GOOD if (is_fest or has_ev) else AstralTheme.MUTED)
 		sub.add_theme_font_size_override("font_size", 11)
 		sub.clip_text = true
@@ -528,8 +555,120 @@ func _on_stroll_pressed() -> void:
 	state_changed.emit()
 	refresh()
 
+func _get_district_for_npc(npc_id: String) -> String:
+	for d in DISTRICTS:
+		if str(d.get("npc", "")) == npc_id or str(d.get("secondary_npc", "")) == npc_id:
+			return str(d["id"])
+	return "palacio"
+
+func _build_cross_encounter_block(did: String) -> void:
+	if _cross_result_body != "":
+		var res_p := AstralTheme.panel("GlowPanel")
+		_npc_panel.add_child(res_p)
+		var rv := AstralTheme.vbox(6)
+		res_p.add_child(rv)
+		rv.add_child(AstralTheme.label("✦ %s" % _cross_result_title, "SubLabel", AstralTheme.GOLD))
+		rv.add_child(AstralTheme.label(_cross_result_body, "", AstralTheme.IVORY, true))
+		if _cross_result_fx != "":
+			rv.add_child(AstralTheme.label(_cross_result_fx, "CaptionLabel", AstralTheme.GOOD, true))
+		var cls_btn := AstralTheme.button("Continuar", "TabLikeButton")
+		cls_btn.custom_minimum_size.y = 32
+		cls_btn.pressed.connect(func() -> void:
+			_cross_result_title = ""
+			_cross_result_body = ""
+			_cross_result_fx = ""
+			refresh())
+		rv.add_child(cls_btn)
+		return
+
+	var cross_enc: Dictionary = RelationshipManager.get_available_cross_encounter(did)
+	if cross_enc.is_empty():
+		return
+	var ep := AstralTheme.panel("GlowPanel")
+	_npc_panel.add_child(ep)
+	var ev := AstralTheme.vbox(6)
+	ep.add_child(ev)
+	ev.add_child(AstralTheme.label("✦ ENCUENTRO EN EL DISTRITO — %s" % str(cross_enc.get("title", "")), "SubLabel", AstralTheme.GOLD))
+
+	var npcs: Array = cross_enc.get("npcs", [])
+	if npcs.size() >= 2:
+		var por_row := AstralTheme.hbox(8)
+		ev.add_child(por_row)
+		for cid_v in npcs:
+			var cid: String = str(cid_v)
+			var c_frame := AstralTheme.panel("CardPanel")
+			c_frame.custom_minimum_size = Vector2(44, 44)
+			por_row.add_child(c_frame)
+			var c_tex := TextureRect.new()
+			c_tex.texture = AstralTheme.load_tex(str(NPC_PORTRAITS.get(cid, "")))
+			c_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			c_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			c_tex.custom_minimum_size = Vector2(36, 36)
+			if not RelationshipManager.is_known(cid):
+				c_tex.modulate = Color(0.08, 0.10, 0.18, 0.94)
+			c_frame.add_child(c_tex)
+		var pair_names: Array[String] = []
+		for cid_v in npcs:
+			var cid: String = str(cid_v)
+			var cdata: Dictionary = RelationshipManager.get_data(cid)
+			pair_names.append(str(cdata.get("name", cid)).split(" ")[0] if RelationshipManager.is_known(cid) else "???")
+		var pair_lbl := AstralTheme.label(" & ".join(pair_names), "CaptionLabel", AstralTheme.TURQ, true)
+		pair_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		por_row.add_child(pair_lbl)
+
+	ev.add_child(AstralTheme.label(str(cross_enc.get("scene", "")), "", AstralTheme.IVORY, true))
+	var choices: Array = cross_enc.get("choices", [])
+	var enc_id: String = str(cross_enc.get("id", ""))
+	for i in range(choices.size()):
+		var ch: Dictionary = choices[i]
+		var cbtn := AstralTheme.button("%d. %s" % [i + 1, str(ch.get("label", "Intervenir"))], "PrimaryButton" if i == 0 else "TabLikeButton")
+		cbtn.custom_minimum_size.y = 36
+		var c_idx: int = i
+		cbtn.pressed.connect(func() -> void: _trigger_cross_encounter(enc_id, c_idx))
+		ev.add_child(cbtn)
+
 func _build_npc_encounter(d: Dictionary) -> void:
-	var npc_id: String = str(d["npc"])
+	var did: String = str(d["id"])
+	_build_cross_encounter_block(did)
+
+	var primary_npc: String = str(d["npc"])
+	var sec_npc: String = str(d.get("secondary_npc", ""))
+	var npc_id: String = primary_npc
+
+	if sec_npc != "" and RelationshipManager.is_available(sec_npc):
+		var chosen: String = str(_selected_npc_by_district.get(did, primary_npc))
+		if chosen == primary_npc or chosen == sec_npc:
+			npc_id = chosen
+		var sw_panel := AstralTheme.panel("CardPanel")
+		_npc_panel.add_child(sw_panel)
+		var sw_v := AstralTheme.vbox(4)
+		sw_panel.add_child(sw_v)
+		sw_v.add_child(AstralTheme.label("Presentes en %s:" % str(d["name"]), "CaptionLabel", AstralTheme.GOLD_PALE))
+		var sw_h := AstralTheme.hbox(8)
+		sw_v.add_child(sw_h)
+		for cand_id in [primary_npc, sec_npc]:
+			var c_data: Dictionary = RelationshipManager.get_data(cand_id)
+			var c_known: bool = RelationshipManager.is_known(cand_id)
+			var c_ev: Dictionary = RelationshipManager.get_next_bond_event(cand_id)
+			var star_tag: String = " ★" if bool(c_ev.get("ok", false)) else ""
+			var disp_name: String = (str(c_data.get("name", cand_id)).split(" ")[0] if c_known else "???") + star_tag
+			var sw_btn := AstralTheme.button(disp_name, "PrimaryButton" if npc_id == cand_id else "TabLikeButton")
+			sw_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			sw_btn.custom_minimum_size.y = 36
+			var mini_tex: Texture2D = AstralTheme.load_tex(str(NPC_PORTRAITS.get(cand_id, "")))
+			if mini_tex != null:
+				sw_btn.icon = mini_tex
+				sw_btn.expand_icon = true
+			var target_c: String = cand_id
+			sw_btn.pressed.connect(func() -> void:
+				if npc_id != target_c:
+					_selected_npc_by_district[did] = target_c
+					_last_reply = ""
+					_last_effects = ""
+					AstralAudio.play_ui()
+					refresh())
+			sw_h.add_child(sw_btn)
+
 	var avail: bool = RelationshipManager.is_available(npc_id)
 	var data: Dictionary = RelationshipManager.get_data(npc_id)
 	var st: Dictionary = RelationshipManager.get_state(npc_id)
@@ -677,6 +816,37 @@ func _build_npc_encounter(d: Dictionary) -> void:
 			_trigger_social(npc_id, "gift_item", gid))
 	gift_row.add_child(b_gift)
 
+	# --- SALIDA O CITA POR LA CIUDAD ---
+	var is_rom_open: bool = RelationshipManager.romance_available(npc_id)
+	var can_outing: bool = int(st.get("affection", 0)) >= RelationshipManager.OUTING_MIN_AFFECTION
+	var out_box := AstralTheme.vbox(4)
+	v.add_child(out_box)
+	var out_hdr: String = ("♥ Cita en Aethelgard (req. +%d Afecto)" if is_rom_open else "✦ Salida en la Ciudad (req. +%d Afecto)") % RelationshipManager.OUTING_MIN_AFFECTION
+	out_box.add_child(AstralTheme.label(out_hdr, "CaptionLabel", AstralTheme.ROSE if is_rom_open else AstralTheme.GOLD_PALE))
+	var out_row := AstralTheme.hbox(8)
+	out_box.add_child(out_row)
+	_outing_select = OptionButton.new()
+	_outing_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for spot_id in RelationshipManager.OUTING_SPOT_ORDER:
+		var sp: Dictionary = RelationshipManager.OUTING_SPOTS.get(spot_id, {})
+		var st_lbl: String = GameState.get_stat_label(str(sp.get("stat", "gracia")))
+		var cost_g: int = int(sp.get("cost", 0))
+		var cost_s: String = "Gratis" if cost_g <= 0 else ("%d G" % cost_g)
+		_outing_select.add_item("%s (%s · +%d %s)" % [str(sp.get("name", spot_id)), cost_s, int(sp.get("stat_val", 5)), st_lbl])
+		_outing_select.set_item_metadata(_outing_select.item_count - 1, spot_id)
+	out_row.add_child(_outing_select)
+	var b_outing := AstralTheme.button("♥ Cita (1 Pt)" if is_rom_open else "✦ Paseo (1 Pt)", "PrimaryButton")
+	b_outing.disabled = (not can_act) or (not can_outing)
+	if not can_outing:
+		b_outing.tooltip_text = "Requiere al menos +%d de Afecto con %s." % [RelationshipManager.OUTING_MIN_AFFECTION, str(data.get("name", npc_id))]
+	b_outing.pressed.connect(func() -> void:
+		if _outing_select == null or _outing_select.selected < 0:
+			return
+		var spot_id: String = str(_outing_select.get_item_metadata(_outing_select.selected))
+		if spot_id != "":
+			_trigger_social(npc_id, "outing", spot_id))
+	out_row.add_child(b_outing)
+
 	# --- ESCENA DE HISTORIA SI DISPONIBLE ---
 	var ev_chk: Dictionary = RelationshipManager.get_next_bond_event(npc_id)
 	if bool(ev_chk.get("ok", false)):
@@ -684,6 +854,21 @@ func _build_npc_encounter(d: Dictionary) -> void:
 		b_ev.custom_minimum_size.y = 44
 		b_ev.pressed.connect(func() -> void: bond_event_requested.emit(npc_id))
 		v.add_child(b_ev)
+
+func _trigger_cross_encounter(enc_id: String, choice_idx: int) -> void:
+	var r: Dictionary = RelationshipManager.resolve_cross_encounter(enc_id, choice_idx)
+	if bool(r.get("ok", false)):
+		AstralAudio.play_confirm()
+		_cross_result_title = str(r.get("speaker", "Encuentro en el Distrito"))
+		_cross_result_body = str(r.get("reply", ""))
+		_cross_result_fx = str(r.get("effects", ""))
+		speak.emit(_cross_result_title, _cross_result_body)
+		toast.emit(_cross_result_fx if _cross_result_fx != "" else _cross_result_title, "good")
+		state_changed.emit()
+		refresh()
+	else:
+		AstralAudio.play_warn()
+		toast.emit(str(r.get("msg", "No fue posible resolver este encuentro.")), "warn")
 
 func _trigger_social(npc_id: String, action_type: String, extra: String = "") -> void:
 	var r: Dictionary = RelationshipManager.interact_with_candidate(npc_id, action_type, extra)
@@ -1137,18 +1322,83 @@ func _build_palacio_facility() -> void:
 	for rid in RivalMirror.RIVAL_ORDER:
 		var rinfo: Dictionary = RivalMirror.get_data(rid)
 		var rst: Dictionary = RivalMirror.get_standing(rid)
-		var rc := AstralTheme.panel("CardPanel")
+		var r_avail: bool = RelationshipManager.is_available(rid)
+		var r_known: bool = r_avail and RelationshipManager.is_known(rid)
+		var r_st: Dictionary = RelationshipManager.get_state(rid)
+		var r_bond_ev: Dictionary = RelationshipManager.get_next_bond_event(rid) if r_avail else {}
+		var r_has_ev: bool = bool(r_bond_ev.get("ok", false))
+		var target_did: String = _get_district_for_npc(rid)
+
+		var rc := AstralTheme.panel("GlowPanel" if r_has_ev else "CardPanel")
+		var r_main := AstralTheme.vbox(6)
+		rc.add_child(r_main)
+
 		var rh := AstralTheme.hbox(10)
-		rc.add_child(rh)
-		var rv := AstralTheme.vbox(2)
+		r_main.add_child(rh)
+
+		var r_pframe := AstralTheme.panel("SunkenPanel")
+		r_pframe.custom_minimum_size = Vector2(58, 58)
+		rh.add_child(r_pframe)
+		var r_ptex := TextureRect.new()
+		r_ptex.texture = AstralTheme.load_tex(str(NPC_PORTRAITS.get(rid, "")))
+		r_ptex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		r_ptex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		r_ptex.custom_minimum_size = Vector2(50, 50)
+		if not r_known:
+			r_ptex.modulate = Color(0.08, 0.10, 0.18, 0.94)
+		r_pframe.add_child(r_ptex)
+
+		var rv := AstralTheme.vbox(3)
 		rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		rh.add_child(rv)
 		rv.add_child(AstralTheme.label("%s — %s" % [str(rinfo.get("full_name", rid)), str(rinfo.get("domain", ""))], "CaptionLabel", AstralTheme.GOLD_PALE, true))
-		rv.add_child(AstralTheme.label("%s: %d vs %d  (%s)" % [GameState.daughter_name, int(rst.get("mine", 0)), int(rst.get("theirs", 0)), str(rst.get("label", ""))], "CaptionLabel", AstralTheme.IVORY, true))
-		var rbtn := AstralTheme.button("⚔ Retar", "TabLikeButton")
-		rbtn.custom_minimum_size = Vector2(104, 38)
-		rbtn.disabled = RivalMirror.challenged_this_bimester
+
+		var r_chips := HFlowContainer.new()
+		r_chips.add_theme_constant_override("h_separation", 6)
+		r_chips.add_theme_constant_override("v_separation", 3)
+		rv.add_child(r_chips)
+		if r_known:
+			r_chips.add_child(AstralTheme.chip(RelationshipManager.get_relationship_status_title(rid), AstralTheme.ROSE, null, 11))
+			r_chips.add_child(AstralTheme.chip("Af %d · Resp %d · Et %d/3" % [int(r_st.get("affection", 0)), int(r_st.get("respect", 0)), int(r_st.get("stage", 1))], AstralTheme.TURQ, null, 11))
+		else:
+			r_chips.add_child(AstralTheme.chip("Sin trato personal", AstralTheme.MUTED, null, 11))
+		r_chips.add_child(AstralTheme.chip(str(rst.get("label", "")), AstralTheme.GOLD, null, 11))
+
+		var mine_v: int = int(rst.get("mine", 0))
+		var theirs_v: int = int(rst.get("theirs", 0))
+		var cap_v: float = maxf(100.0, float(maxi(mine_v, theirs_v) + 40))
+		rv.add_child(AstralTheme.label("%s: %d  vs  %d" % [GameState.daughter_name, mine_v, theirs_v], "CaptionLabel", AstralTheme.IVORY, true))
+		var cmp_bar := ProgressBar.new()
+		cmp_bar.max_value = cap_v
+		cmp_bar.value = float(mine_v)
+		cmp_bar.show_percentage = false
+		cmp_bar.custom_minimum_size = Vector2(0, 7)
+		cmp_bar.modulate = AstralTheme.TURQ if mine_v >= theirs_v else AstralTheme.ROSE
+		rv.add_child(cmp_bar)
+
+		var quote_s: String = RivalMirror.get_status_quote(rid)
+		if quote_s != "":
+			r_main.add_child(AstralTheme.label("«%s»" % quote_s, "CaptionLabel", AstralTheme.MUTED, true))
+
+		var btn_row := AstralTheme.hbox(8)
+		r_main.add_child(btn_row)
 		var target_rid: String = rid
+
+		var b_visit := AstralTheme.button("★ Escena (Acto %d)" % int(r_bond_ev.get("stage", 1)) if r_has_ev else "✦ Visitar en Distrito", "PrimaryButton" if r_has_ev else "TabLikeButton")
+		b_visit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b_visit.custom_minimum_size.y = 34
+		b_visit.pressed.connect(func() -> void:
+			if r_has_ev:
+				bond_event_requested.emit(target_rid)
+			else:
+				_selected_npc_by_district[target_did] = target_rid
+				_enter_district(target_did))
+		btn_row.add_child(b_visit)
+
+		var rbtn := AstralTheme.button("⚔ Retar a Duelo", "TabLikeButton")
+		rbtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rbtn.custom_minimum_size.y = 34
+		rbtn.disabled = RivalMirror.challenged_this_bimester
 		rbtn.pressed.connect(func() -> void:
 			var dr: Dictionary = RivalMirror.challenge_rival_duel(target_rid)
 			if bool(dr.get("ok", false)):
@@ -1160,7 +1410,7 @@ func _build_palacio_facility() -> void:
 			else:
 				AstralAudio.play_warn()
 				toast.emit(str(dr.get("msg", "")), "warn"))
-		rh.add_child(rbtn)
+		btn_row.add_child(rbtn)
 		sen_v.add_child(rc)
 
 	tabs.current_tab = clampi(int(_facility_tab_by_district.get("palacio", 0)), 0, tabs.get_tab_count() - 1)

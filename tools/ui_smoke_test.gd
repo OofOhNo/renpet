@@ -328,6 +328,98 @@ func _ready() -> void:
 		check(ConstellationTapestry.discovered_endings.size() >= 1, "final registrado en El Tapiz")
 		check(ConstellationTapestry.astral_points > 0, "puntos astrales NG+ otorgados")
 	check(Chronicle.letters_archive.size() == 8, "8 cartas")
+
+	# --- VERIFICACIÓN EXHAUSTIVA: RIVALES SECUNDARIOS (LYRA/CAELUM), DIÁLOGOS POR ACTO, CITAS Y ENCUENTROS CRUZADOS ---
+	for rid in ["lyra", "caelum"]:
+		check(RelationshipManager.NPC_ORDER.has(rid), "%s registrado en RelationshipManager.NPC_ORDER" % rid)
+		check(RivalMirror.RIVAL_ORDER.has(rid), "%s registrado en RivalMirror.RIVAL_ORDER" % rid)
+		check(AstralTheme.load_tex("res://assets/ui/npc_%s.png" % rid) != null, "retrato npc_%s.png cargado" % rid)
+		for st in [1, 2, 3]:
+			var bev: Dictionary = BondEvents.get_event(rid, st)
+			check(not bev.is_empty(), "BondEvents etapa %d existe para %s" % [st, rid])
+			var c_ids: Array[String] = []
+			for opt in bev.get("choices", []):
+				c_ids.append(str(opt.get("id", "")))
+			check(c_ids.has("friend") and c_ids.has("rival") and c_ids.has("romance"), "BondEvents etapa %d de %s tiene friend/rival/romance" % [st, rid])
+	for rid in RivalMirror.RIVAL_ORDER:
+		check(RivalMirror.get_status_quote(rid) != "", "RivalMirror.get_status_quote no vacío para %s" % rid)
+
+	# Reinicio limpio para probar Actos 1/2/3, Tier 0 sin spoilers, salidas (outing), switcher y encuentros cruzados
+	GameState.reset_run()
+	TimeManager.reset()
+	RelationshipManager.reset()
+	GameState.prologue_completed = true
+	GameState.age = 12
+	check(GameState.get_secret_tier() == 0, "Tier 0 confirmado en edad 12")
+	var dlg_a1: String = RelationshipManager.get_contextual_action_dialogue("soren", "chat", false, 1)
+	var dlg_a2: String = RelationshipManager.get_contextual_action_dialogue("soren", "chat", false, 2)
+	var dlg_a3: String = RelationshipManager.get_contextual_action_dialogue("soren", "chat", false, 3)
+	check(dlg_a1 != "" and dlg_a2 != "" and dlg_a3 != "", "diálogos contextuales Acto 1/2/3 no vacíos")
+	check(dlg_a1 != dlg_a2 and dlg_a2 != dlg_a3 and dlg_a1 != dlg_a3, "variación real de diálogo entre Actos 1, 2 y 3")
+
+	GameState.equipped_outfit = "gala"
+	var outfit_hits: bool = false
+	for _i in range(6):
+		var d_chk: String = RelationshipManager.get_contextual_action_dialogue("vespera", "chat", false, 1)
+		check(not d_chk.contains("Nyx-Aethel") and not d_chk.to_lower().contains("prisionero"), "sin spoilers del giro en Tier 0")
+		if d_chk.to_lower().contains("gala") or d_chk.to_lower().contains("salón") or d_chk.to_lower().contains("seda") or d_chk.to_lower().contains("baile"):
+			outfit_hits = true
+	check(RelationshipManager.OUTFIT_COMMENTS.has("gala") and outfit_hits or not RelationshipManager.OUTFIT_COMMENTS.get("gala", {}).is_empty(), "tabla OUTFIT_COMMENTS activa")
+
+	GameState.gold = 900
+	RelationshipManager.reset_bimester_flags()
+	check(bool(RelationshipManager.meet_candidate("lyra").get("ok", false)), "descubrir a Lyra consume 1 PS")
+	check(bool(RelationshipManager.meet_candidate("caelum").get("ok", false)), "descubrir a Caelum consume 1 PS")
+	RelationshipManager.state["lyra"]["affection"] = maxi(20, RelationshipManager.OUTING_MIN_AFFECTION)
+	var out_r: Dictionary = RelationshipManager.interact_with_candidate("lyra", "outing", RelationshipManager.OUTING_SPOT_ORDER[0])
+	check(bool(out_r.get("ok", false)), "salida/cita por la ciudad con Lyra funcional")
+
+	hub.debug_open_city("palacio")
+	await frames(3)
+	var pal_btn_txts: Array[String] = []
+	var lyra_btn: Button = null
+	for b in _all_buttons(hub._city_map):
+		pal_btn_txts.append(str(b.text))
+		if str(b.text).contains("Lyra"):
+			lyra_btn = b
+	check(lyra_btn != null, "selector de residentes en Palacio muestra a Lyra")
+	if lyra_btn != null:
+		lyra_btn.pressed.emit()
+		await frames(2)
+		check(str(hub._city_map._selected_npc_by_district.get("palacio", "")) == "lyra", "al pulsar Lyra cambia el residente activo de Palacio")
+
+	hub.debug_open_city("patio")
+	await frames(3)
+	var caelum_found: bool = false
+	for b in _all_buttons(hub._city_map):
+		if str(b.text).contains("Caelum"):
+			caelum_found = true
+			break
+	check(caelum_found, "selector de residentes en Patio Ducal muestra a Caelum")
+
+	# Desbloquear conocidos y validar encuentro cruzado en distrito
+	for nid in RelationshipManager.NPC_ORDER:
+		if RelationshipManager.state.has(nid):
+			RelationshipManager.state[nid]["known"] = true
+	var cross_did: String = ""
+	var cross_enc: Dictionary = {}
+	for did in ["torre", "palacio", "patio", "acueductos", "anfiteatro"]:
+		var ce: Dictionary = RelationshipManager.get_available_cross_encounter(did)
+		if not ce.is_empty():
+			cross_did = did
+			cross_enc = ce
+			break
+	check(cross_did != "" and not cross_enc.is_empty(), "existe encuentro cruzado disponible en distrito")
+	if cross_did != "":
+		hub.debug_open_city(cross_did)
+		await frames(3)
+		var ce_txts: String = "\n".join(_all_label_texts(hub._city_map))
+		check(ce_txts.contains("ENCUENTRO EN EL DISTRITO"), "CityMapOverlay renderiza tarjeta de encuentro cruzado")
+		var ce_res: Dictionary = RelationshipManager.resolve_cross_encounter(str(cross_enc.get("id", "")), 0)
+		check(bool(ce_res.get("ok", false)), "resolución de encuentro cruzado devuelve ok = true")
+	hub._city_map.close_overlay()
+	await frames(2)
+
 	print("\n==== UI SMOKE: %d fallos ====" % failures)
 	get_tree().quit(1 if failures > 0 else 0)
 

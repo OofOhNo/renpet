@@ -17,28 +17,48 @@ const RIVAL_DATA: Dictionary = {
 		"domain": "Marcial (Temple + Destreza)", "stats": ["temple", "destreza"],
 		"base_score": 260, "growth": 28, "mirror": 0.92, "train_boost": 2.0,
 		"doubles_on": ["class_armory"], "clash_name": "Asalto de Espadas de Madera",
-		"train_line": "Dama Vespera te vio inscrita en la Academia de Armas y entrenó el doble este bimestre."
+		"train_line": "Dama Vespera te vio inscrita en la Academia de Armas y entrenó el doble este bimestre.",
+		"clash_win_quote": "Vespera saluda con la empuñadura: «Tu muñeca no tembló. La próxima vez no me contendré.»",
+		"clash_lose_quote": "Vespera apoya la lanza en su hombro: «Tienes espíritu, pero dejas abierto el flanco derecho.»",
+		"duel_win_quote": "«Bien golpeado, hija del Héroe. Por un momento sentí que peleaba por algo más que un apellido.»",
+		"duel_lose_quote": "«No bajes la vista del suelo al perder. Levántate: te esperaré en el próximo asalto.»",
+		"respect_high_quote": "«Eres la única oponente digna de cruzar acero limpio en toda la Academia Real.»"
 	},
 	"soren": {
 		"name": "Soren de Caelum", "full_name": "Soren de Caelum",
 		"domain": "Académico (Erudición + Resonancia)", "stats": ["erudicion", "resonancia"],
 		"base_score": 255, "growth": 26, "mirror": 0.90, "train_boost": 1.5,
 		"doubles_on": ["class_astrolabe", "job_clockwork"], "clash_name": "Duelo de Pizarra",
-		"train_line": "Soren se encerró en la Torre a estudiar para igualarte en los exámenes."
+		"train_line": "Soren se encerró en la Torre a estudiar para igualarte en los exámenes.",
+		"clash_win_quote": "Soren se ajusta las gafas asombrado: «¿Cómo dedujiste el tercer vector antes de completar la tabla?»",
+		"clash_lose_quote": "Soren marca con tiza su resultado: «La intuición ayuda, pero los cálculos no mienten.»",
+		"duel_win_quote": "«Tu lectura del firmamento superó todas mis efemérides... Quiero estudiar ese trazo contigo.»",
+		"duel_lose_quote": "«Esta vez la ecuación favoreció mi pizarra. Repasa los ángulos inversos antes del próximo examen.»",
+		"respect_high_quote": "«Discutir trigonometría celeste contigo hace que hasta mis noches de insomnio valgan la pena.»"
 	},
 	"lyra": {
 		"name": "Lady Lyra", "full_name": "Lady Lyra de Meridia",
 		"domain": "Corte y Gala (Gracia + Magnetismo)", "stats": ["gracia", "magnetismo"],
 		"base_score": 245, "growth": 25, "mirror": 0.88, "train_boost": 1.5,
 		"doubles_on": ["class_conservatory", "job_amphitheater"], "clash_name": "Crítica de Etiqueta",
-		"train_line": "Lady Lyra intensificó sus tardes de té y sus rumores en los salones de la Corte."
+		"train_line": "Lady Lyra intensificó sus tardes de té y sus rumores en los salones de la Corte.",
+		"clash_win_quote": "Lyra oculta una sonrisa sorprendida tras su abanico: «Qué cadencia tan precisa... Quién lo diría.»",
+		"clash_lose_quote": "Lyra alza el mentón con suavidad: «La elegancia no consiste en esforzarse demasiado a la vista de todos.»",
+		"duel_win_quote": "«Toda la sala miró hacia ti al último acorde... Admito que hoy la Rosa de Alabastro perdió su corona.»",
+		"duel_lose_quote": "«Un paso apresurado rompe todo el vals, querida. Practica frente al espejo antes de retarme.»",
+		"respect_high_quote": "«En toda esta corte llena de máscaras, eres la única cuya sonrisa me obliga a dar mi máximo.»"
 	},
 	"caelum": {
 		"name": "Caelum 'El Perro Gris'", "full_name": "Caelum 'El Perro Gris'",
 		"domain": "Caza y Sombra (Destreza + Gravedad)", "stats": ["destreza", "gravedad"],
 		"base_score": 240, "growth": 24, "mirror": 0.88, "train_boost": 1.5,
 		"doubles_on": ["job_caravan", "job_canals"], "clash_name": "Disputa de Contratos",
-		"train_line": "Caelum te vio competir por los contratos de caza y salió a rastrear por su cuenta."
+		"train_line": "Caelum te vio competir por los contratos de caza y salió a rastrear por su cuenta.",
+		"clash_win_quote": "Caelum silba por lo bajo al ver tu botín: «Nada mal para una noble. Tienes olfato de sabueso.»",
+		"clash_lose_quote": "Caelum cuelga el saco de contratos en su silla: «Llegaste dos minutos tarde, cachorra de héroe.»",
+		"duel_win_quote": "«Ja... Me sacaste ventaja limpia en reflejos. El Perro Gris no olvida a quien le gana un contrato.»",
+		"duel_lose_quote": "«Aquí fuera no valen los modales ni los discursos. Endurece el paso si quieres la próxima presa.»",
+		"respect_high_quote": "«Pocos en el gremio tienen agallas para cubrir mi espalda sin que les tiemble el pulso. Tú sí.»"
 	}
 }
 
@@ -121,6 +141,18 @@ func advance_bimester(executed_ids: Array) -> Array[String]:
 	rival_ranks_updated.emit()
 	return lines
 
+func get_status_quote(rival_id: String) -> String:
+	var d: Dictionary = RIVAL_DATA.get(rival_id, {})
+	if d.is_empty():
+		return ""
+	var st: Dictionary = RelationshipManager.get_state(rival_id)
+	var standing: Dictionary = get_standing(rival_id)
+	if int(st.get("respect", 0)) >= 45:
+		return str(d.get("high_respect_quote", ""))
+	if int(standing.get("diff", 0)) >= 0:
+		return str(d.get("clash_win_quote", ""))
+	return str(d.get("clash_lose_quote", ""))
+
 # ------------------------------------------------------------------------------
 # CHOQUES DE AULA (Fase 6.2): se resuelven dentro del bimestre
 # Devuelve {"rival_id","name","clash_name","won": bool,"status": "inspired"|"stung","text": String, "stress": int}
@@ -140,16 +172,16 @@ func resolve_classroom_clash(rival_id: String, activity_name: String, block_idx:
 	if won:
 		result["status"] = "inspired"
 		result["stress"] = -10
-		result["text"] = "«%s» en %s: %s se impuso a %s (%d vs %d). Estado: Inspirada (-10 Estrés, +20%% de ganancia el resto del bimestre)." % [
-			d["clash_name"], activity_name, GameState.daughter_name, d["name"], mine, theirs]
+		result["text"] = "«%s» en %s: %s se impuso a %s (%d vs %d). %s — Estado: Inspirada (-10 Estrés, +20%% de ganancia el resto del bimestre)." % [
+			d["clash_name"], activity_name, GameState.daughter_name, d["name"], mine, theirs, str(d.get("clash_win_quote", ""))]
 		_nudge_respect(rival_id, 6)
 		Chronicle.record_event("clash_win_" + rival_id, "%s: victoria ante %s" % [d["clash_name"], d["name"]],
 			"%s ganó el choque de aula (%d vs %d)." % [GameState.daughter_name, mine, theirs], "rivalry", 3)
 	else:
 		result["status"] = "stung"
 		result["stress"] = 10
-		result["text"] = "«%s» en %s: %s se impuso a %s (%d vs %d). Estado: Picada en su Orgullo (+10 Estrés, +35%% de ganancia si repite esta actividad en el siguiente bloque)." % [
-			d["clash_name"], activity_name, d["name"], GameState.daughter_name, theirs, mine]
+		result["text"] = "«%s» en %s: %s se impuso a %s (%d vs %d). %s — Estado: Picada en su Orgullo (+10 Estrés, +35%% de ganancia si repite esta actividad en el siguiente bloque)." % [
+			d["clash_name"], activity_name, d["name"], GameState.daughter_name, theirs, mine, str(d.get("clash_lose_quote", ""))]
 		_nudge_respect(rival_id, 2)
 		Chronicle.record_event("clash_lose_" + rival_id, "%s: derrota ante %s" % [d["clash_name"], d["name"]],
 			"%s perdió el choque de aula (%d vs %d)." % [GameState.daughter_name, mine, theirs], "rivalry", 3)
@@ -170,6 +202,9 @@ func challenge_rival_duel(rival_id: String) -> Dictionary:
 	var main_stat: String = d["stats"][0]
 	var main_label: String = GameState.get_stat_label(main_stat)
 
+	if RelationshipManager.state.has(rival_id):
+		RelationshipManager.state[rival_id]["known"] = true
+
 	GameState.begin_batch()
 	var result: Dictionary
 	if my_score >= riv_score:
@@ -181,26 +216,27 @@ func challenge_rival_duel(rival_id: String) -> Dictionary:
 			"%s superó a %s en %s (%d vs %d)." % [GameState.daughter_name, d["name"], d["domain"], my_score, riv_score], "rivalry", 4)
 		result = {
 			"ok": true, "won": true, "speaker": "Duelo de Prestigio — ¡VICTORIA!",
-			"reply": "¡%s superó a %s en %s (%d vs %d) ante toda la Academia Real!" % [GameState.daughter_name, d["name"], d["domain"], my_score, riv_score],
+			"reply": "¡%s superó a %s en %s (%d vs %d)!\n%s: %s" % [GameState.daughter_name, d["name"], d["domain"], my_score, riv_score, d["name"], str(d.get("duel_win_quote", ""))],
 			"effects": "+150 Oro, +14 %s, +10 Magnetismo, +16 Respeto" % main_label
 		}
 	else:
 		GameState.modify_stat(main_stat, 10)
 		GameState.modify_stat("stress", 8)
 		scores[rival_id] = riv_score + 10
+		_nudge_respect(rival_id, 4)
 		Chronicle.record_event("duel_lose_" + rival_id, "Derrota honorable ante %s" % d["name"],
 			"%s cayó ante %s (%d vs %d) y prometió volver más fuerte." % [GameState.daughter_name, d["name"], riv_score, my_score], "rivalry", 3)
 		result = {
 			"ok": true, "won": false, "speaker": "Duelo de Prestigio — Derrota Honorable",
-			"reply": "%s se impuso por %d a %d en %s. %s aprendió de la derrota y prometió volver más fuerte." % [d["name"], riv_score, my_score, d["domain"], GameState.daughter_name],
-			"effects": "+10 %s (Aprendizaje), +8 Estrés" % main_label
+			"reply": "%s se impuso por %d a %d en %s.\n%s: %s" % [d["name"], riv_score, my_score, d["domain"], d["name"], str(d.get("duel_lose_quote", ""))],
+			"effects": "+10 %s (Aprendizaje), +4 Respeto, +8 Estrés" % main_label
 		}
 	GameState.end_batch()
 	rival_ranks_updated.emit()
 	return result
 
 func _nudge_respect(rival_id: String, amount: int) -> void:
-	# Vespera y Soren también son candidatos de vínculo: un buen duelo les gana respeto.
+	# Todos los rivales están en RelationshipManager: un buen duelo les gana respeto.
 	if RelationshipManager.state.has(rival_id):
 		var c: Dictionary = RelationshipManager.state[rival_id]
 		c["respect"] = clampi(int(c["respect"]) + amount, -100, 100)
