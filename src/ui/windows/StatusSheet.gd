@@ -6,9 +6,10 @@ class_name StatusSheet
 signal open_letter(letter: Dictionary)
 
 const TRAIT_INFO: Array[Dictionary] = [
-	{"prefix": "Insomnio de las Estrellas", "desc": "Duerme mal y comete errores, pero a veces oye al cosmos con claridad.", "cond": "Sello menor a 50% y Estrés mayor a 65."},
-	{"prefix": "Ojos de Eclipse", "desc": "Zephyr se asoma en sus pupilas. Desbloquea las escenas más profundas con el Prisionero.", "cond": "Sello menor a 60% y Sincronía de 30 o más."},
-	{"prefix": "Rencor del Sarcófago", "desc": "La Entropía le gana al corazón humano: se vuelve rebelde y rencorosa.", "cond": "Entropía de 40 o más y Anclaje Humano menor a 45."},
+	{"prefix": "Insomnio de las Estrellas", "desc": "Duerme mal y comete errores, pero a veces oye al cosmos con claridad.", "cond": "Resguardo astral menor a 50% y Estrés mayor a 65."},
+	{"prefix": "Ojos de Eclipse", "desc": "Un brillo enigmático asoma en sus pupilas nocturnas.", "cond": "Armonía estelar baja y Eco nocturno elevado."},
+	{"prefix": "Rencor del Sarcófago", "desc": "La Entropía supera a su corazón humano.", "cond": "Entropía alta y Anclaje Humano bajo."},
+	{"prefix": "Desdén Astral", "desc": "La Entropía supera a su corazón humano.", "cond": "Entropía alta y Anclaje Humano bajo."},
 	{"prefix": "Orgullo del Hogar", "desc": "Quiere ser digna de su padre. +20% de eficacia cuando él supervisa su entrenamiento.", "cond": "Afecto mayor a 80 y Anclaje Humano mayor a 70."},
 	{"prefix": "Corazón Indómito", "desc": "No retrocede ante nada. Gana los desafíos físicos con valentía.", "cond": "Temple mayor a 450 y Destreza mayor a 450."},
 	{"prefix": "Mente de Cristal Frío", "desc": "Brillante y calculadora, pero distante del calor familiar.", "cond": "Erudición mayor a 400 y Afecto menor a 45."},
@@ -95,6 +96,7 @@ func refresh() -> void:
 	if _tabs == null:
 		return
 	for k in _bars.keys():
+		(_bars[k] as StatBar).set_title(GameState.get_stat_label(k))
 		(_bars[k] as StatBar).set_value(GameState.get_stat(k))
 	_head_rich.text = "[b]%s[/b], %d años   ·   Padre: [b]%s[/b], %s\n%s" % [
 		GameState.daughter_name, GameState.age, GameState.father_name, GameState.get_archetype_title(),
@@ -106,10 +108,16 @@ func refresh() -> void:
 
 func _refresh_traits() -> void:
 	clear(_traits_box)
+	var tier: int = GameState.get_secret_tier()
 	for info in TRAIT_INFO:
+		var pref: String = str(info["prefix"])
+		if pref == "Rencor del Sarcófago" and tier < 2:
+			continue
+		if pref == "Desdén Astral" and tier >= 2:
+			continue
 		var active_name: String = ""
 		for t in GameState.active_traits:
-			if t.begins_with(str(info["prefix"])):
+			if t.begins_with(pref):
 				active_name = t
 		var card := AstralTheme.panel("GlowPanel" if active_name != "" else "SunkenPanel")
 		var v := AstralTheme.vbox(2)

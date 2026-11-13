@@ -208,7 +208,21 @@ func get_stat(stat_key: String) -> int:
 func is_known_stat(stat_key: String) -> bool:
 	return STAT_RANGES.has(stat_key) or stat_key == "seal_investigation" or stat_key == "gold"
 
+func get_secret_tier() -> int:
+	if seal_investigation_progress >= 85 or memory_shards_found >= 4 or (ExplorationCombat != null and ExplorationCombat.story_acts_seen.has(17)):
+		return 2
+	if seal_investigation_progress >= 40 or memory_shards_found >= 2 or has_mutation("voz_del_prisionero") or (ExplorationCombat != null and ExplorationCombat.story_acts_seen.has(14)):
+		return 1
+	return 0
+
 func get_stat_label(stat_key: String) -> String:
+	var tier: int = get_secret_tier()
+	if stat_key == "seal_integrity":
+		return "Armonía Estelar" if tier == 0 else ("Estabilidad del Sello" if tier == 1 else "Sello Estelar")
+	if stat_key == "abyssal_sync":
+		return "Eco del Eclipse" if tier == 0 else ("Sincronía con Zephyr" if tier == 1 else "Sincronía Nyx-Aethel")
+	if stat_key == "seal_investigation":
+		return "Indagación del Origen" if tier == 0 else ("Investigación del Sello" if tier == 1 else "Verdad de la Prisión")
 	return str(STAT_LABELS.get(stat_key, stat_key.capitalize()))
 
 ## Cambia un atributo respetando su rango. Devuelve el cambio REAL aplicado (tras el clamp).
@@ -299,9 +313,9 @@ func evaluate_psychological_traits() -> void:
 	if seal_integrity < 50 and stress > 65:
 		found.append("Insomnio de las Estrellas (Inestable)")
 	if seal_integrity < 60 and abyssal_sync >= 30:
-		found.append("Ojos de Eclipse (Escucha a Zephyr)")
+		found.append("Ojos de Eclipse (Escucha a Zephyr)" if get_secret_tier() >= 1 else "Ojos de Eclipse (Sueños Nocturnos)")
 	if entropia >= 40 and human_anchor < 45:
-		found.append("Rencor del Sarcófago (Rebelde)")
+		found.append("Rencor del Sarcófago (Rebelde)" if get_secret_tier() >= 2 else "Desdén Astral (Rebelde)")
 	# Prioridad 2: carácter forjado
 	if affection > 80 and human_anchor > 70:
 		found.append("Orgullo del Hogar (Devota)")
@@ -323,14 +337,15 @@ func evaluate_psychological_traits() -> void:
 		traits_updated.emit(active_traits)
 
 func get_metaphysical_state_title() -> String:
+	var tier: int = get_secret_tier()
 	if seal_integrity <= 20 and human_anchor < 40:
-		return "CRÍTICO: Despertar del Eclipse Devorador"
+		return "CRÍTICO: Despertar del Eclipse Devorador" if tier >= 2 else "CRÍTICO: Tormenta Estelar Incontrolable"
 	elif seal_integrity < 55 and human_anchor >= 70:
-		return "SIMBIOSIS: Domando al Prisionero con Amor Humano"
+		return "SIMBIOSIS: Domando al Prisionero con Amor Humano" if tier >= 2 else "ARMONÍA DUAL: El Latido Oculto en Calma"
 	elif seal_integrity >= 70 and human_anchor >= 65:
 		return "ESTABLE: Corazón Mortal Luminoso"
 	elif seal_integrity >= 70 and human_anchor < 40:
-		return "FRÍO: Vasija Obediente de la Diosa"
+		return "FRÍO: Vasija Obediente de la Diosa" if tier >= 2 else "DISTANTE: Pureza Astral Silenciosa"
 	return "RESONANTE: Fluctuación entre Estrella y Humana"
 
 ## Saludo dinámico determinista según estrés, sello, edad, afecto y logros

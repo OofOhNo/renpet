@@ -45,6 +45,10 @@ func setup(display_name: String, key: String, min_value: int, max_value: int, co
 	add_child(_val_lbl)
 	return self
 
+func set_title(t: String) -> void:
+	if _name_lbl != null:
+		_name_lbl.text = t
+
 func set_value(v: int, animate: bool = true) -> void:
 	if _bar == null:
 		return

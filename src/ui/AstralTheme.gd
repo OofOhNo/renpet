@@ -40,16 +40,16 @@ const STAT_TOOLTIPS: Dictionary = {
 	"luminiscencia": "Poder de la luz estelar de su interior.",
 	"gravedad": "Control de la masa y el peso del cosmos.",
 	"resonancia": "Sintonía con el aether y el tiempo.",
-	"entropia": "Inclinación al caos. Alta y sin arraigo humano despierta el Rencor del Sarcófago.",
+	"entropia": "Inclinación al caos. Alta y sin arraigo humano despierta una rebeldía astral peligrosa.",
 	"moralidad": "Brújula ética de Renpet.",
 	"devocion": "Vínculo espiritual con la Palma Celeste.",
 	"stress": "Sobre 80 rinde 25% menos; al llegar a 100 se desploma.",
 	"affection": "Cariño hacia su padre. Muy alto (+80) con Anclaje alto forma el Orgullo del Hogar.",
 	"human_anchor": "Arraigo mortal, amor y empatía. Es lo que la mantiene humana.",
-	"seal_integrity": "Cadenas que contienen a Nyx-Aethel. A 0%, el Prisionero despierta.",
-	"abyssal_sync": "Comprensión de Zephyr / Nyx-Aethel.",
+	"seal_integrity": "Equilibrio de la luz estelar que late en su pecho. Si cae demasiado, algo oculto parece agitarse.",
+	"abyssal_sync": "Resonancia con la misteriosa voz o sombra que susurra desde el otro lado de sus sueños.",
 	"astral_saturation": "Toxicidad cósmica temporal del Horno. Sobre 60 absorbe peor; sobre 100 sobrecarga.",
-	"seal_investigation": "Avance de la investigación secreta sobre el Sello.",
+	"seal_investigation": "Avance de la investigación secreta sobre el verdadero origen de la estrella caída.",
 	"father_reputation": "Prestigio del Padre en Aethelgard: descuentos y objetos exclusivos."
 }
 

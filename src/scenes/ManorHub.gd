@@ -11,7 +11,7 @@ const NAV_ITEMS: Array[Dictionary] = [
 	{"id": "hearth", "title": "III. Chimenea y Hogar", "sub": "Charlas, dieta y mansión", "icon": "res://assets/ui/nav_fireplace.png", "key": KEY_3},
 	{"id": "crucible", "title": "IV. El Crisol Astral", "sub": "Asimilar reliquias y alquimia", "icon": "res://assets/ui/nav_crucible.png", "key": KEY_4},
 	{"id": "town", "title": "V. Ciudad y Vínculos", "sub": "Candidatos y rivales", "icon": "res://assets/ui/nav_town.png", "key": KEY_5},
-	{"id": "explore", "title": "VI. Expedición Astral", "sub": "5 Regiones y combate táctico", "icon": "res://assets/ui/nav_expedition.png", "key": KEY_6}
+	{"id": "explore", "title": "VI. Expedición y Festival", "sub": "Regiones, combate y certámenes", "icon": "res://assets/ui/nav_expedition.png", "key": KEY_6}
 ]
 
 # --- Nodos de interfaz ---
@@ -25,6 +25,7 @@ var _pill_affection: Label
 var _bar_anchor: StatBar
 var _bar_seal: StatBar
 var _bar_sync: StatBar
+var _lbl_seal_heading: Label
 var _lbl_seal_title: Label
 var _dock_medallion: TextureRect
 var _nav_buttons: Dictionary = {}
@@ -51,6 +52,7 @@ var _report: TurnReportOverlay
 var _letter: LetterOverlay
 var _bond: BondEventOverlay
 var _combat: CombatOverlay
+var _story: StoryEventOverlay
 var _menu: MenuOverlay
 var _ending: EndingOverlay
 
@@ -104,12 +106,15 @@ func _on_prologue_finished(daughter: String, father: String, archetype: int) -> 
 	GameState.daughter_name = daughter
 	GameState.father_name = father
 	GameState.apply_archetype_bonuses(archetype as GameState.HeroArchetype)
+	var ng_boons: Array[String] = ConstellationTapestry.apply_active_boons_to_new_game()
 	GameState.prologue_completed = true
 	Chronicle.record_event("hero_created", "El Héroe elige su leyenda", "%s se presentó como %s." % [father, GameState.get_archetype_title()], "lore", 4)
+	if not ng_boons.is_empty():
+		Chronicle.record_event("ng_plus_boons", "Bendiciones del Tapiz", "Ventajas heredadas activadas: %s." % ", ".join(ng_boons), "lore", 4)
 	SaveManager.autosave()
 	_refresh_all()
 	say("%s — Mansión Solar" % GameState.daughter_name, GameState.get_dynamic_manor_greeting())
-	toast("Comienza la crónica de %s" % daughter, "good")
+	toast("Comienza la crónica de %s%s" % [daughter, " (NG+)" if not ng_boons.is_empty() else ""], "good")
 
 # ------------------------------------------------------------------------------
 # CONSTRUCCIÓN DE LA INTERFAZ
@@ -235,13 +240,14 @@ func _build_dock() -> Control:
 	var hv := AstralTheme.vbox(2)
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(hv)
-	hv.add_child(AstralTheme.label("ESTADO DEL SELLO", "HeadingLabel"))
+	_lbl_seal_heading = AstralTheme.label("ESTADO DE LA MARCA", "HeadingLabel")
+	hv.add_child(_lbl_seal_heading)
 	_lbl_seal_title = AstralTheme.label("", "CaptionLabel", AstralTheme.TURQ, true)
 	hv.add_child(_lbl_seal_title)
 
-	_bar_anchor = StatBar.new().setup("Anclaje Humano", "human_anchor", 0, 100, AstralTheme.STAT_COLORS["human_anchor"], str(AstralTheme.STAT_TOOLTIPS["human_anchor"]), 138)
-	_bar_seal = StatBar.new().setup("Sello Estelar", "seal_integrity", 0, 100, AstralTheme.STAT_COLORS["seal_integrity"], str(AstralTheme.STAT_TOOLTIPS["seal_integrity"]), 138)
-	_bar_sync = StatBar.new().setup("Sincronía Zephyr", "abyssal_sync", 0, 100, AstralTheme.STAT_COLORS["abyssal_sync"], str(AstralTheme.STAT_TOOLTIPS["abyssal_sync"]), 138)
+	_bar_anchor = StatBar.new().setup(GameState.get_stat_label("human_anchor"), "human_anchor", 0, 100, AstralTheme.STAT_COLORS["human_anchor"], str(AstralTheme.STAT_TOOLTIPS["human_anchor"]), 138)
+	_bar_seal = StatBar.new().setup(GameState.get_stat_label("seal_integrity"), "seal_integrity", 0, 100, AstralTheme.STAT_COLORS["seal_integrity"], str(AstralTheme.STAT_TOOLTIPS["seal_integrity"]), 138)
+	_bar_sync = StatBar.new().setup(GameState.get_stat_label("abyssal_sync"), "abyssal_sync", 0, 100, AstralTheme.STAT_COLORS["abyssal_sync"], str(AstralTheme.STAT_TOOLTIPS["abyssal_sync"]), 138)
 	for b in [_bar_anchor, _bar_seal, _bar_sync]:
 		(b as StatBar).custom_minimum_size.y = 24
 		v.add_child(b)
@@ -314,6 +320,7 @@ func _build_windows() -> void:
 	(_windows["status"] as StatusSheet).open_letter.connect(func(l: Dictionary) -> void: _letter.show_letter(l))
 	(_windows["town"] as TownMap).bond_event_requested.connect(func(npc: String) -> void: _bond.play(npc))
 	(_windows["explore"] as ExplorationWindow).expedition_started.connect(func() -> void: _combat.open_combat())
+	(_windows["explore"] as ExplorationWindow).festival_completed.connect(_on_festival_completed)
 
 func _build_stage() -> Control:
 	var s := Control.new()
@@ -416,9 +423,10 @@ func _build_overlays() -> void:
 	_letter = LetterOverlay.new()
 	_bond = BondEventOverlay.new()
 	_combat = CombatOverlay.new()
+	_story = StoryEventOverlay.new()
 	_menu = MenuOverlay.new()
 	_ending = EndingOverlay.new()
-	for o in [_report, _letter, _bond, _combat, _menu, _ending, _prologue]:
+	for o in [_report, _letter, _bond, _combat, _story, _menu, _ending, _prologue]:
 		add_child(o)
 	_prologue.finished.connect(_on_prologue_finished)
 	_bond.resolved.connect(func(_npc: String) -> void:
@@ -480,7 +488,7 @@ func _close_windows() -> void:
 	_current_window = ""
 
 func _any_overlay_visible() -> bool:
-	for o in [_prologue, _report, _letter, _bond, _combat, _menu, _ending]:
+	for o in [_prologue, _report, _letter, _bond, _combat, _story, _menu, _ending]:
 		if (o as Control).visible:
 			return true
 	return false
@@ -538,12 +546,21 @@ func _execute_turn() -> void:
 	if not letter.is_empty():
 		_letter.show_letter(letter)
 		await _letter.closed
+	var story_ev: Dictionary = ExplorationCombat.check_pending_main_story_event()
+	if bool(story_ev.get("has_event", false)):
+		_story.show_story_event(story_ev)
+		await _story.closed
+		_refresh_all()
+		SaveManager.autosave()
 	if rep.get("campaign_finished", false):
 		_ending.show_ending()
 		_busy = false
 		return
 	say("%s — Mansión Solar" % GameState.daughter_name, GameState.get_dynamic_manor_greeting())
-	toast("Autoguardado — %s" % TimeManager.get_bimester_info()["name"], "good")
+	if TimeManager.is_festival_bimester():
+		toast("✦ ¡Festival de Otoño abierto! Compite en (VI. Expedición y Festival)", "good")
+	else:
+		toast("Autoguardado — %s" % TimeManager.get_bimester_info()["name"], "good")
 	_busy = false
 
 func _on_expedition_ended(victory: bool, _summary: String) -> void:
@@ -551,10 +568,19 @@ func _on_expedition_ended(victory: bool, _summary: String) -> void:
 	_refresh_all()
 	if victory:
 		toast("Expedición completada con éxito", "good")
-		say(GameState.daughter_name, "\"¡Volvimos sanos y salvos al observatorio, Padre! Traemos reliquias y nuevos secretos del cielo.\"")
+		say(GameState.daughter_name, "\"¡Volvimos sanos y salvos al observatorio, Padre! Traemos reliquias y nuevos recuerdos del cielo.\"")
 	else:
 		toast("Retirada de la expedición", "warn")
-		say(GameState.daughter_name, "\"Tuvimos que retroceder antes de que el Sello sufriera más... Descansaré un poco.\"")
+		var seal_word: String = "el Sello" if GameState.get_secret_tier() >= 1 else "mi estrella"
+		say(GameState.daughter_name, "\"Tuvimos que retroceder antes de que %s sufriera más... Descansaré un poco.\"" % seal_word)
+
+func _on_festival_completed(res: Dictionary) -> void:
+	SaveManager.autosave()
+	_refresh_all()
+	if bool(res.get("won", false)):
+		say(GameState.daughter_name, "\"¡Lo logramos, Padre! ¡Toda la capital coreó nuestro nombre en el Coliseo de las Constelaciones!\"")
+	else:
+		say(GameState.daughter_name, "\"El rival estuvo muy fuerte esta vez, Padre, pero aprendí muchísimo en el escenario imperial.\"")
 
 func _load_slot(slot: int) -> void:
 	var res: Dictionary = SaveManager.load_game(slot)
@@ -593,8 +619,12 @@ func _do_refresh() -> void:
 	_pill_stress.add_theme_color_override("font_color", AstralTheme.BAD if GameState.stress >= 80 else (AstralTheme.EMBER if GameState.stress >= 60 else AstralTheme.GOOD))
 	_pill_affection.text = "%s  Afecto: %d%%" % [AstralTheme.G_HEART, GameState.affection]
 	_bar_anchor.set_value(GameState.human_anchor)
+	_bar_seal.set_title(GameState.get_stat_label("seal_integrity"))
 	_bar_seal.set_value(GameState.seal_integrity)
+	_bar_sync.set_title(GameState.get_stat_label("abyssal_sync"))
 	_bar_sync.set_value(GameState.abyssal_sync)
+	var tier: int = GameState.get_secret_tier()
+	_lbl_seal_heading.text = "ESTADO DEL SELLO" if tier >= 1 else "ESTADO DE LA MARCA"
 	var cracked: bool = GameState.seal_integrity < 50
 	var med_path: String = "res://assets/ui/seal_medallion_cracked.png" if cracked else "res://assets/ui/seal_medallion_intact.png"
 	_dock_medallion.texture = load(med_path)

@@ -247,15 +247,15 @@ const EVENTS: Dictionary = {
 	"zephyr": {
 		1: {
 			"title": "El Pacto Frente al Espejo del Sueño",
-			"narrative": "En sueños, el espejo del observatorio se abre hacia un mar de nebulosas violetas. Zephyr aparece con cadenas de oro egipcio atadas a sus muñecas.\n\n«La Diosa Renpet-Neheh me encerró porque yo era el Cambio y ella quería una Eternidad inmóvil. Tú eres mi jaula, niña... ¿Qué harás conmigo cuando llegue el Equinoccio?»",
+			"narrative": "En sueños, el espejo del observatorio se abre hacia un mar de nebulosas violetas. Zephyr aparece con cadenas de oro egipcio atadas a sus muñecas.\n\n«Me arrebataron el cielo que conocía y me ataron al otro lado de este reflejo. Cada vez que usas tu poder, mis cadenas tiemblan... Dime, niña de la estrella: cuando llegue el Equinoccio, ¿qué harás con la verdad?»",
 			"choices": [
-				{"kind": "friend", "label": "Proponer una tregua justa: «Préstame tu fuerza para proteger a mi padre y buscaré tu libertad.»",
+				{"kind": "friend", "label": "Proponer una tregua justa: «Préstame tu fuerza para proteger a mi padre y buscaré qué ocurrió realmente.»",
 					"affection": 22, "respect": 28, "spark": 0, "stat_effects": {"abyssal_sync": 10, "human_anchor": 8, "seal_investigation": 10},
 					"outcome": "Zephyr sonríe con respeto genuino ante tu coraje mortal, sellando la alianza del Tercer Camino."},
-				{"kind": "rival", "label": "Reforzar los barrotes dorados: «Este cuerpo y esta vida son míos. ¡Obedece mis órdenes!»",
+				{"kind": "rival", "label": "Reforzar los barrotes dorados: «Este cuerpo y esta vida son míos. ¡Quédate tras el cristal!»",
 					"affection": -30, "respect": 20, "spark": 0, "stat_effects": {"seal_integrity": 8, "gravedad": 25},
 					"outcome": "Zephyr ruge entre relámpagos carmesíes, jurando que el día que flaquees tomará el control por la fuerza."},
-				{"kind": "romance", "label": "Tocar su rostro a través del cristal: «No soy tu carcelera, Zephyr. Seremos libres juntos.»",
+				{"kind": "romance", "label": "Tocar su rostro a través del cristal: «No te dejaré solo en ese espejo, Zephyr. Encontraremos quién te ató.»",
 					"affection": 26, "respect": 20, "spark": 30, "stat_effects": {"abyssal_sync": 14, "resonancia": 22},
 					"outcome": "Las cadenas doradas dejan de quemar. Zephyr apoya su mano contra la tuya en una simbiosis perfecta."}
 			]

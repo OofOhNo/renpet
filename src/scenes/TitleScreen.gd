@@ -5,6 +5,8 @@ extends Control
 const MANOR_SCENE: String = "res://src/scenes/ManorHub.tscn"
 
 var _menu: MenuOverlay
+var _tapestry: ConstellationOverlay
+var _tap_btn: Button
 var _anim: float = 0.0
 var _title_label: Label
 
@@ -64,13 +66,18 @@ func _ready() -> void:
 	b_load.disabled = not SaveManager.has_any_save()
 	b_load.pressed.connect(func() -> void: _menu.open_slots(MenuOverlay.Mode.LOAD))
 	col.add_child(b_load)
+	var total_matrix: int = EndingEvaluator.BRANCH_ORDER.size() * EndingEvaluator.VOCATION_ORDER.size()
+	_tap_btn = AstralTheme.button("%s  El Tapiz de las Constelaciones (%d/%d)" % [AstralTheme.G_STAR, ConstellationTapestry.discovered_endings.size(), total_matrix])
+	_tap_btn.custom_minimum_size.y = 54
+	_tap_btn.pressed.connect(func() -> void: _tapestry.open_tapestry(0))
+	col.add_child(_tap_btn)
 	if not OS.has_feature("web"):
 		var b_quit := AstralTheme.button("Salir", "DangerButton")
 		b_quit.custom_minimum_size.y = 52
 		b_quit.pressed.connect(func() -> void: get_tree().quit())
 		col.add_child(b_quit)
 
-	var foot := AstralTheme.label("Fases 1 a 6  ·  Godot %s" % Engine.get_version_info()["string"], "CaptionLabel", AstralTheme.MUTED)
+	var foot := AstralTheme.label("Campaña Completa (Fases 1 a 9 · 65 Finales & NG+)  ·  Godot %s" % Engine.get_version_info()["string"], "CaptionLabel", AstralTheme.MUTED)
 	foot.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE, Control.PRESET_MODE_MINSIZE, 14)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(foot)
@@ -78,6 +85,9 @@ func _ready() -> void:
 	_menu = MenuOverlay.new()
 	add_child(_menu)
 	_menu.load_requested.connect(_load)
+	_tapestry = ConstellationOverlay.new()
+	add_child(_tapestry)
+	ConstellationTapestry.tapestry_updated.connect(_refresh_tap_btn)
 
 	b_new.grab_focus()
 
@@ -99,6 +109,11 @@ func _latest_slot() -> int:
 func _new_game() -> void:
 	SaveManager.pending_load_slot = -1
 	get_tree().change_scene_to_file(MANOR_SCENE)
+
+func _refresh_tap_btn() -> void:
+	if _tap_btn != null:
+		var total_matrix: int = EndingEvaluator.BRANCH_ORDER.size() * EndingEvaluator.VOCATION_ORDER.size()
+		_tap_btn.text = "%s  El Tapiz de las Constelaciones (%d/%d)" % [AstralTheme.G_STAR, ConstellationTapestry.discovered_endings.size(), total_matrix]
 
 func _load(slot: int) -> void:
 	SaveManager.pending_load_slot = slot

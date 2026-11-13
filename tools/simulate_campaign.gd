@@ -104,6 +104,9 @@ func play(strategy: String) -> void:
 	check(Chronicle.letters_archive.size() == 8, "se esperaban 8 cartas anuales, hay %d" % Chronicle.letters_archive.size())
 	print("  FIN: oro %d | mutaciones %s | cartas %d | vínculos: %s" % [
 		GameState.gold, GameState.active_mutations, Chronicle.letters_archive.size(), _bonds()])
+	var eval_res: Dictionary = EndingEvaluator.evaluate_campaign()
+	check(eval_res.get("ending_id", "") != "", "EndingEvaluator devolvió ending_id vacío")
+	print("  FINAL: %s (%s · %s)" % [eval_res["ending_title"], eval_res["branch"]["short"], eval_res["vocation"]["name"]])
 
 func _bonds() -> String:
 	var parts: Array[String] = []
@@ -197,3 +200,12 @@ func test_catalog_integrity() -> void:
 			check(t["stances"].has(att), "tópico %s sin actitud %s" % [t["id"], att])
 			for k in t["stances"][att]["effects"].keys():
 				check(GameState.is_known_stat(k), "tópico %s/%s: atributo desconocido %s" % [t["id"], att, k])
+	var matrix_count: int = 0
+	for bid in EndingEvaluator.BRANCH_ORDER:
+		check(EndingEvaluator.BRANCHES.has(bid), "falta rama %s" % bid)
+		for vid in EndingEvaluator.VOCATION_ORDER:
+			check(EndingEvaluator.VOCATIONS.has(vid), "falta vocación %s" % vid)
+			var m_res: Dictionary = EndingEvaluator.compose_matrix_ending(bid, vid)
+			check(str(m_res.get("title", "")) != "", "falta título matriz %s/%s" % [bid, vid])
+			matrix_count += 1
+	check(matrix_count == 65, "matriz debería tener 65 finales (5x13), tiene %d" % matrix_count)

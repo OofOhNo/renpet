@@ -111,7 +111,8 @@ func assemble_annual_letter(completed_year: int) -> Dictionary:
 	elif GameState.seal_integrity >= 50:
 		parts.append("Últimamente siento un segundo latido bajo mis costillas cuando uso el Horno Astral. En mis sueños aparece aquel joven de ojos de eclipse diciendo que la Diosa nos oculta algo sobre el día en que nací... pero confío en que juntos hallaremos la verdad.")
 	else:
-		parts.append("Las cadenas de luz dentro de mi pecho queman cuando me enfado o me agoto. Escucho los recuerdos de Nyx-Aethel con tanta claridad que a veces temo olvidar dónde termina la estrella y dónde empiezo yo. No sueltes mi mano el próximo año, Padre.")
+		var secret_name: String = "Nyx-Aethel" if GameState.get_secret_tier() >= 2 else "una vida remota bajo un cielo oscuro"
+		parts.append("Las cadenas de luz dentro de mi pecho queman cuando me enfado o me agoto. Escucho los recuerdos de %s con tanta claridad que a veces temo olvidar dónde termina la estrella y dónde empiezo yo. No sueltes mi mano el próximo año, Padre." % secret_name)
 
 	# 5. Vínculo más fuerte o más tenso de la ciudad
 	var social_line: String = RelationshipManager.get_letter_line()

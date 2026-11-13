@@ -62,11 +62,12 @@ func _npc_card(npc_id: String) -> Control:
 	var mid := AstralTheme.vbox(6)
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(mid)
-	mid.add_child(AstralTheme.label(str(data["name"]), "HeadingLabel"))
-	mid.add_child(AstralTheme.label("%s  ·  %s" % [data["title"], data["location"]], "CaptionLabel", AstralTheme.MUTED, true))
+	var avail: bool = RelationshipManager.is_available(npc_id)
+	mid.add_child(AstralTheme.label(str(data["name"]) if avail else "??? — Presencia en el Espejo", "HeadingLabel"))
+	mid.add_child(AstralTheme.label("%s  ·  %s" % [data["title"], data["location"]] if avail else "Misterio Celestial  ·  Sin manifestarse", "CaptionLabel", AstralTheme.MUTED, true))
 
-	if not RelationshipManager.is_available(npc_id):
-		icon.modulate = Color(0.4, 0.4, 0.5, 0.8)
+	if not avail:
+		icon.modulate = Color(0.25, 0.25, 0.35, 0.8)
 		mid.add_child(AstralTheme.label(AstralTheme.G_MOON + "  " + RelationshipManager.get_locked_reason(npc_id), "", AstralTheme.EMBER, true))
 		return card
 

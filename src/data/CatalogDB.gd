@@ -127,9 +127,9 @@ const FATHER_TASKS: Array[Dictionary] = [
 		"effects": {"stress": -25, "human_anchor": 10, "affection": 8}
 	},
 	{
-		"id": "investigate", "name": "Investigar en Secreto el Sello", "icon": "✧", "energy": 50,
+		"id": "investigate", "name": "Investigar el Origen Estelar", "icon": "✧", "energy": 50,
 		"excludes": [],
-		"summary": "Descifras archivos del templo sobre la prisión de Nyx-Aethel: +15% de Investigación y +18 Resonancia.",
+		"summary": "Descifras archivos censurados sobre la caída de la estrella y su segundo latido: +15% de Indagación y +18 Resonancia.",
 		"effects": {"seal_investigation": 15, "resonancia": 18}
 	},
 	{
@@ -179,8 +179,8 @@ const PRESTIGE_SYNERGIES: Array[Dictionary] = [
 		"bonus_desc": "+30% de ingresos en recitales y gran ventaja diplomática con el Príncipe Cassian."},
 	{"id": "mortal_beacon", "title": "Faro de Humanidad Inquebrantable", "stat_a": "human_anchor", "req_a": 85, "stat_b": "luminiscencia", "req_b": 200,
 		"bonus_desc": "El amor terrenal protege su alma: regenera +2% de Sello Estelar cada bimestre."},
-	{"id": "eclipse_sovereign", "title": "Domadora del Sarcófago Astral", "stat_a": "abyssal_sync", "req_a": 45, "stat_b": "gravedad", "req_b": 180,
-		"bonus_desc": "Pacto consciente con Zephyr: el Horno Astral otorga un +30% adicional de atributos."},
+	{"id": "eclipse_sovereign", "title": "Domadora del Eclipse Interior", "stat_a": "abyssal_sync", "req_a": 45, "stat_b": "gravedad", "req_b": 180,
+		"bonus_desc": "Pacto consciente con el eco de tus sueños: el Horno Astral otorga un +30% adicional de atributos."},
 	{"id": "solar_artificer", "title": "Artífice del Reloj Solar", "stat_a": "destreza", "req_a": 210, "stat_b": "resonancia", "req_b": 210,
 		"bonus_desc": "Maestría en engranajes celestes: transmutar cuesta menos y la Investigación del Sello rinde +15%."}
 ]
@@ -211,7 +211,7 @@ const COSMIC_MATERIALS: Array[Dictionary] = [
 		"mutation": "sangre_pesada", "exclusive_rep": 0, "weight": 25
 	},
 	{
-		"id": "sarcophagus_shard", "name": "Esquirla del Sarcófago", "origin": "Cráter del Lucero", "price": 260,
+		"id": "sarcophagus_shard", "name": "Esquirla del Relicario Negro", "origin": "Cráter del Lucero", "price": 260,
 		"stats": {"gravedad": 60, "luminiscencia": 50, "abyssal_sync": 15}, "seal_delta": -12, "saturation": 28,
 		"mutation": "voz_del_prisionero", "exclusive_rep": 0, "weight": 8
 	},
@@ -231,7 +231,7 @@ const MUTATIONS: Dictionary = {
 	"paso_de_luz": {"name": "Paso de Luz", "desc": "Carta de combate: Evasión + robo de 2 cartas."},
 	"pulso_cristalino": {"name": "Pulso Cristalino", "desc": "Regenera 8% de HP por turno en combate."},
 	"sangre_pesada": {"name": "Sangre Pesada", "desc": "Inmunidad a empuje y venenos."},
-	"voz_del_prisionero": {"name": "Voz del Prisionero", "desc": "Desbloquea el diálogo con Zephyr."},
+	"voz_del_prisionero": {"name": "Eco del Espejo", "desc": "Despierta una voz enigmática en los sueños de Renpet."},
 	"paradoja_menor": {"name": "Paradoja Menor", "desc": "Permite repetir el último ataque."},
 	"bendicion_del_tiempo": {"name": "Bendición del Tiempo", "desc": "Ancla Sagrada: el Sello resiste mejor las asimilaciones."}
 }

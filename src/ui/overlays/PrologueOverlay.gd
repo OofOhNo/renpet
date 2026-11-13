@@ -8,8 +8,8 @@ signal finished(daughter: String, father: String, archetype: int)
 
 const PAGES: Array[String] = [
 	"Hace doce años quebraste las cadenas del templo donde la Diosa Renpet-Neheh, Señora del Tiempo, estuvo cautiva por siglos.\n\nEn gratitud, la Diosa desprendió una estrella blanca del firmamento, le dio forma de niña humana y la puso en tus brazos.",
-	"Pero aquella estrella guardaba un secreto milenario: no era un lucero común, sino el Sarcófago Celestial donde la Diosa encerró a Nyx-Aethel, el espíritu primordial del cambio.\n\nTodos creen que la niña es un regalo divino. Solo tú has oído, en la quietud de la noche, un segundo latido bajo su pecho.",
-	"Ahora tu hija cumple doce años en tu observatorio de Aethelgard.\n\nTienes ocho años por delante, hasta el Solsticio de sus veinte, para criarla, protegerla y descubrir qué clase de verdad late dentro del sello de su pecho."
+	"Todos en Aethelgard celebran a la pequeña como una bendición divina del firmamento.\n\nSin embargo, en la quietud de las noches sin luna, has percibido una marca dorada en su pecho y un segundo latido oculto en su interior, como el pulso de un reloj antiguo.",
+	"Ahora tu hija cumple doce años en tu observatorio de Aethelgard.\n\nTienes ocho años por delante, hasta el Solsticio de sus veinte, para criarla, protegerla y descubrir qué secreto duerme realmente dentro de su luz."
 ]
 
 const ARCHETYPES: Array[Dictionary] = [
@@ -134,6 +134,12 @@ func _show_creation() -> void:
 			_arch_buttons.append(b)
 		_error = AstralTheme.label("", "CaptionLabel", AstralTheme.BAD, true)
 		content.add_child(_error)
+		var boon_names: Array[String] = ConstellationTapestry.get_active_boon_names()
+		if not boon_names.is_empty():
+			content.add_child(AstralTheme.label(
+				"%s  Bendiciones del Tapiz (NG+) activas: %s" % [AstralTheme.G_STAR, ", ".join(boon_names)],
+				"CaptionLabel", AstralTheme.GOOD, true
+			))
 		_start_btn = AstralTheme.button("%s  COMENZAR LA HISTORIA  %s" % [AstralTheme.G_STAR, AstralTheme.G_STAR], "PrimaryButton")
 		_start_btn.custom_minimum_size.y = 60
 		_start_btn.pressed.connect(_confirm)

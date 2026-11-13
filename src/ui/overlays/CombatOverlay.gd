@@ -148,9 +148,9 @@ func _build_ui() -> void:
 	cards_root.add_child(action_row)
 
 	var unseal_btn := AstralTheme.button(
-		"%s  ENTREABRIR EL SELLO (0 PA  |  -Sello, +Nyx-Aethel, Daño Masivo)" % AstralTheme.G_ANKH,
+		"%s  ENTREABRIR EL SELLO / FULGOR OCULTO (0 PA  |  Daño Masivo)" % AstralTheme.G_ANKH,
 		"DangerButton",
-		"Libera el poder prohibido de Nyx-Aethel: daño devastador, +35% HP y +2 PA, pero erosiona el Sello Estelar."
+		"Desata la fuerza dormida bajo su pecho: daño devastador, +35% HP y +2 PA, pero desestabiliza su equilibrio interior."
 	)
 	unseal_btn.icon = load("res://assets/ui/icon_unseal_power.png")
 	unseal_btn.expand_icon = true
@@ -230,8 +230,9 @@ func _refresh_combat() -> void:
 	_player_ap_lbl.text = "PA: %d / %d   |   Rebobinados: %d" % [
 		ExplorationCombat.player_ap, ExplorationCombat.player_max_ap, ExplorationCombat.rewind_charges
 	]
-	_player_seal_lbl.text = "%s Sello Estelar: %d%%   |   Sincronía Zephyr: %d%%" % [
-		AstralTheme.G_ANKH, GameState.seal_integrity, GameState.abyssal_sync
+	_player_seal_lbl.text = "%s %s: %d%%   |   %s: %d%%" % [
+		AstralTheme.G_ANKH, GameState.get_stat_label("seal_integrity"), GameState.seal_integrity,
+		GameState.get_stat_label("abyssal_sync"), GameState.abyssal_sync
 	]
 
 	_log_rich.text = "\n".join(ExplorationCombat.combat_log)

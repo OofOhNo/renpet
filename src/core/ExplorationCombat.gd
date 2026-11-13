@@ -8,6 +8,7 @@ signal combat_finished(victory: bool, summary: String)
 
 var explored_this_bimester: bool = false
 var festival_entered_this_year: bool = false
+var festival_wins: Array[int] = []
 var memory_shards_found: Array[String] = []
 var story_acts_seen: Array[int] = []
 var unseal_used_count: int = 0
@@ -51,8 +52,8 @@ const ZONES: Array[Dictionary] = [
 		"gold_reward": 230,
 		"loot_id": "mercury_dew",
 		"shard_id": "shard_2",
-		"shard_title": "Esquirla II: La Traición al Lucero del Cambio",
-		"shard_lore": "El mural sumergido muestra a dos dioses: la Señora de la Eternidad Estática y Nyx-Aethel, el Lucero del Cambio Libre. Ella no lo destruyó; lo encerró dentro de un astro vivo."
+		"shard_title": "Esquirla II: El Mural Borrado",
+		"shard_lore": "El mural sumergido muestra a dos luminarias antiguas: la Señora del Oro Inmóvil y un Lucero del Cambio borrado de los anales oficiales. Sus trazos evocan una mirada entrevista en sueños."
 	},
 	{
 		"id": "zone_3",
@@ -71,8 +72,8 @@ const ZONES: Array[Dictionary] = [
 		"gold_reward": 310,
 		"loot_id": "melted_hourglass",
 		"shard_id": "shard_3",
-		"shard_title": "Esquirla III: El Molde de Carne y Estrella",
-		"shard_lore": "Una inscripción secreta revela por qué la Diosa convirtió la estrella-prisión en una niña humana: necesitaba que el amor mortal alimentara el Sello durante veinte años."
+		"shard_title": "Esquirla III: El Molde de Carne y Luz",
+		"shard_lore": "Una inscripción secreta describe cómo la Diosa forjó un cuerpo mortal para contener una fuerza que no podía extinguirse. Quien la porta no es solo una elegida: es un receptáculo vivo."
 	},
 	{
 		"id": "zone_4",
@@ -80,8 +81,8 @@ const ZONES: Array[Dictionary] = [
 		"min_age": 16,
 		"difficulty": 4,
 		"desc": "El abismo donde descendió la estrella de Renpet; la gravedad se curva en espirales violetas.",
-		"enemy_name": "Sombra del Sarcófago",
-		"enemy_title": "Fragmento de Nyx-Aethel",
+		"enemy_name": "Sombra del Relicario",
+		"enemy_title": "Eco del Lucero Caído",
 		"enemy_icon": "res://assets/ui/enemy_abyssal.png",
 		"boss_name": "Heraldo del Eclipse Carmesí",
 		"boss_title": "Vanguardia Abisal",
@@ -91,8 +92,8 @@ const ZONES: Array[Dictionary] = [
 		"gold_reward": 420,
 		"loot_id": "sarcophagus_shard",
 		"shard_id": "shard_4",
-		"shard_title": "Esquirla IV: Las Cadenas de Renpet-Neheh",
-		"shard_lore": "En el centro del cráter hallas el primer eslabón del Sello: si el Sello permanece al 100%, la Diosa absorberá tu alma a los 20 años; si se rompe sin amor humano, el eclipse te consumirá."
+		"shard_title": "Esquirla IV: Las Cadenas del Astro",
+		"shard_lore": "En el centro del cráter hallas el primer eslabón dorado: la estrella no cayó por accidente; fue sellada aquí abajo. Si el vínculo permanece intacto a los 20 años, la Diosa reclamará su obra; si se quiebra sin anclaje humano, la oscuridad lo devorará todo."
 	},
 	{
 		"id": "zone_5",
@@ -120,7 +121,7 @@ const ZONES: Array[Dictionary] = [
 const FESTIVAL_CONTESTS: Array[Dictionary] = [
 	{
 		"id": "contest_blades",
-		"name": "⚔️ Justa de las Espadas Solares",
+		"name": "⚔  Justa de las Espadas Solares",
 		"rival_id": "vespera",
 		"rival_name": "Dama Vespera de Val-Astra",
 		"stats": ["temple", "destreza", "gravedad"],
@@ -130,7 +131,7 @@ const FESTIVAL_CONTESTS: Array[Dictionary] = [
 	},
 	{
 		"id": "contest_astrolabe",
-		"name": "🔭 Certamen del Gran Astrolabio",
+		"name": "✦  Certamen del Gran Astrolabio",
 		"rival_id": "soren",
 		"rival_name": "Soren de Caelum",
 		"stats": ["erudicion", "resonancia", "luminiscencia"],
@@ -140,7 +141,7 @@ const FESTIVAL_CONTESTS: Array[Dictionary] = [
 	},
 	{
 		"id": "contest_moons",
-		"name": "🪷 Danza de las Siete Lunas",
+		"name": "❀  Danza de las Siete Lunas",
 		"rival_id": "lyra",
 		"rival_name": "Lady Lyra de Meridia",
 		"stats": ["gracia", "magnetismo", "luminiscencia"],
@@ -150,9 +151,9 @@ const FESTIVAL_CONTESTS: Array[Dictionary] = [
 	},
 	{
 		"id": "contest_clockwork",
-		"name": "⚗️ Gala Alquímica del Reloj Real",
+		"name": "⚗  Gala Alquímica del Reloj Real",
 		"rival_id": "caelum",
-		"rival_name": "Caelum 'El Lobo Gris'",
+		"rival_name": "Caelum 'El Perro Gris'",
 		"stats": ["destreza", "erudicion", "resonancia"],
 		"reward_gold": 300,
 		"reward_item": "comet_dust",
@@ -190,6 +191,7 @@ var combat_log: Array[String] = []
 func reset_new_game() -> void:
 	explored_this_bimester = false
 	festival_entered_this_year = false
+	festival_wins.clear()
 	memory_shards_found.clear()
 	story_acts_seen.clear()
 	unseal_used_count = 0
@@ -353,7 +355,7 @@ func play_combat_card(card_id: String) -> void:
 			combat_log.append("[color=#FFF176]⏪ REBOBINADO TEMPORAL: El reloj gira hacia atrás (+%d HP, +40 Escudo, +2 PA).[/color]" % heal_r)
 
 		"unseal":
-			# EL BOTÓN TENTADOR: ENTREABRIR EL SELLO ESTELAR (0 PA)
+			# EL BOTÓN TENTADOR: LIBERAR LA RESONANCIA OCULTA / ENTREABRIR EL SELLO (0 PA)
 			var seal_cost: int = -4 if companion_id == "zephyr" else -8
 			GameState.modify_stat("seal_integrity", seal_cost)
 			GameState.modify_stat("abyssal_sync", 7)
@@ -362,9 +364,14 @@ func play_combat_card(card_id: String) -> void:
 			var abyssal_dmg: int = 180 + int((GameState.gravedad + GameState.resonancia + GameState.abyssal_sync * 4) * 0.65)
 			player_hp = mini(player_max_hp, player_hp + int(player_max_hp * 0.35))
 			player_ap += 2
-			Chronicle.record_event("unseal_combat_%d" % unseal_used_count, "El Sello Entreabierto en Batalla", "Para derrotar a %s, %s liberó el fuego violeta de Nyx-Aethel (%d%% Sello)." % [enemy_name, GameState.daughter_name, seal_cost], "twist", 5)
-			combat_log.append("[color=#FF80AB][b]☥ ¡SELLO ENTREABIERTO! Fulgor de Nyx-Aethel (%d%% Sello, +7%% Sincronía, +2 PA)[/b][/color]" % seal_cost)
-			_apply_damage_to_enemy(abyssal_dmg, 999, "☥ Eclipse de Nyx-Aethel")
+			if GameState.get_secret_tier() >= 2:
+				Chronicle.record_event("unseal_combat_%d" % unseal_used_count, "El Sello Entreabierto en Batalla", "Para derrotar a %s, %s liberó el fuego violeta de Nyx-Aethel (%d%% Sello)." % [enemy_name, GameState.daughter_name, seal_cost], "twist", 5)
+				combat_log.append("[color=#FF80AB][b]☥ ¡SELLO ENTREABIERTO! Fulgor de Nyx-Aethel (%d%% Sello, +7%% Sincronía, +2 PA)[/b][/color]" % seal_cost)
+				_apply_damage_to_enemy(abyssal_dmg, 999, "☥ Eclipse de Nyx-Aethel")
+			else:
+				Chronicle.record_event("unseal_combat_%d" % unseal_used_count, "Fulgor Violeta en Batalla", "Para derrotar a %s, %s liberó una llamarada desconocida de su propia marca (%d%% Resguardo)." % [enemy_name, GameState.daughter_name, seal_cost], "mystery", 5)
+				combat_log.append("[color=#FF80AB][b]☥ ¡RESONANCIA LIBERADA! Llamarada del Eclipse (%d%% %s, +7%% Vínculo, +2 PA)[/b][/color]" % [seal_cost, GameState.get_stat_label("seal_integrity")])
+				_apply_damage_to_enemy(abyssal_dmg, 999, "☥ Llamarada del Eclipse")
 
 	_check_enemy_defeat_or_continue()
 
@@ -461,8 +468,8 @@ func _check_enemy_defeat_or_continue() -> void:
 			GameState.memory_shards_found = memory_shards_found.size()
 			GameState.modify_stat("seal_investigation", 15)
 			Chronicle.record_event(shard_id, current_zone["shard_title"], current_zone["shard_lore"], "twist", 5)
-			shard_msg = "\n[color=#FFF176][b]★ %s (+15%% Investigación del Sello):[/b]\n%s[/color]" % [
-				current_zone["shard_title"], current_zone["shard_lore"]
+			shard_msg = "\n[color=#FFF176][b]✦ %s (+15%% %s):[/b]\n%s[/color]" % [
+				current_zone["shard_title"], GameState.get_stat_label("seal_investigation"), current_zone["shard_lore"]
 			]
 		_setup_stage_enemy(2)
 		player_ap = player_max_ap
@@ -488,15 +495,9 @@ func _check_enemy_defeat_or_continue() -> void:
 # ==============================================================================
 # LÓGICA DEL GRAN FESTIVAL DE LAS CONSTELACIONES DE OTOÑO (FASE 8)
 # ==============================================================================
-func participate_in_festival(contest_idx: int, rival_mirror_dict: Dictionary) -> Dictionary:
-	if not TimeManager.is_festival_bimester():
-		return {"ok": false, "msg": "El Gran Festival de las Constelaciones se celebra en el 4º Bimestre (Cosecha, Equinoccio de Otoño). Aún puedes prepararte."}
-	if festival_entered_this_year:
-		return {"ok": false, "msg": "Renpet ya compitió en el certamen oficial del Festival de Otoño de este año."}
+func get_festival_preview(contest_idx: int) -> Dictionary:
 	if contest_idx < 0 or contest_idx >= FESTIVAL_CONTESTS.size():
-		return {"ok": false, "msg": "Certamen inválido."}
-
-	festival_entered_this_year = true
+		return {"my_total": 0, "target_score": 0}
 	var c: Dictionary = FESTIVAL_CONTESTS[contest_idx]
 	var stat_list: Array = c["stats"]
 	var my_total: int = 0
@@ -504,37 +505,189 @@ func participate_in_festival(contest_idx: int, rival_mirror_dict: Dictionary) ->
 		my_total += int(GameState.get_stat(str(sk)))
 	if GameState.unlocked_synergies.has("horizon_valkyrie") and c["id"] == "contest_blades":
 		my_total += 60
+	var r_id: String = str(c["rival_id"])
+	var riv_base: int = RivalMirror.get_rival_score(r_id)
+	var target_score: int = int(round(float(riv_base) * 1.35))
+	return {"my_total": my_total, "target_score": target_score}
 
-	var r_id: String = c["rival_id"]
-	var riv_base: int = int(rival_mirror_dict.get(r_id, {}).get("score", 250))
-	var target_score: int = int(round(riv_base * 1.35))
+func participate_in_festival(contest_idx: int) -> Dictionary:
+	if not TimeManager.is_festival_bimester():
+		return {"ok": false, "msg": "El Gran Festival de las Constelaciones se celebra en el 4º Bimestre (Cosecha, Equinoccio de Otoño). Aún puedes prepararte."}
+	if festival_entered_this_year:
+		return {"ok": false, "msg": "%s ya compitió en el certamen oficial del Festival de Otoño de este año." % GameState.daughter_name}
+	if contest_idx < 0 or contest_idx >= FESTIVAL_CONTESTS.size():
+		return {"ok": false, "msg": "Certamen inválido."}
 
-	if my_total >= target_score:
+	festival_entered_this_year = true
+	var c: Dictionary = FESTIVAL_CONTESTS[contest_idx]
+	var prev: Dictionary = get_festival_preview(contest_idx)
+	var my_total: int = int(prev["my_total"])
+	var target_score: int = int(prev["target_score"])
+	var won: bool = my_total >= target_score
+
+	if won:
 		var g_rew: int = int(c["reward_gold"])
-		var item_k: String = c["reward_item"]
+		var item_k: String = str(c["reward_item"])
 		GameState.modify_gold(g_rew)
 		GameState.modify_stat("magnetismo", 24)
 		GameState.modify_stat("affection", 10)
-		GameState.materials_inventory[item_k] = GameState.materials_inventory.get(item_k, 0) + 1
-		Chronicle.record_event("festival_champion_" + str(TimeManager.current_year), "Campeona del Festival de Otoño (%s)" % c["name"], "%s venció a %s con %d pts frente a %d pts." % [GameState.daughter_name, c["rival_name"], my_total, target_score], "festival", 5)
+		GameState.modify_stat("father_reputation", 6)
+		GameState.materials_inventory[item_k] = int(GameState.materials_inventory.get(item_k, 0)) + 1
+		if not festival_wins.has(TimeManager.current_year):
+			festival_wins.append(TimeManager.current_year)
+		Chronicle.record_event("festival_champion_%d" % TimeManager.current_year, "Campeona del Festival de Otoño (%s)" % c["name"], "%s venció a %s con %d pts frente a %d pts." % [GameState.daughter_name, c["rival_name"], my_total, target_score], "festival", 5)
+		var mat_name: String = str(CatalogDB.get_material(item_k).get("name", item_k))
 		return {
 			"ok": true,
-			"title": "👑 ¡CAMPEONA DEL FESTIVAL DE LAS CONSTELACIONES!",
-			"summary": "¡%s deslumbró a toda la capital en [b]%s[/b], superando a %s (%d pts vs %d pts)!\n\n[color=#81C784]Premio Imperial: +%d Oro, +24 Magnetismo, +10 Afecto y +1 Reliquia Sagrada para el Crisol.[/color]" % [
-				GameState.daughter_name, c["name"], c["rival_name"], my_total, target_score, g_rew
+			"won": true,
+			"title": "✦  ¡CAMPEONA DEL FESTIVAL DE LAS CONSTELACIONES!  ✦",
+			"summary": "¡%s deslumbró a toda la capital en [b]%s[/b], superando a %s (%d pts vs %d pts)!\n\n[color=#86e3a6]Premio Imperial: +%d Oro, +24 Magnetismo, +10 Afecto, +6 Reputación y +1 %s para el Crisol.[/color]" % [
+				GameState.daughter_name, c["name"], c["rival_name"], my_total, target_score, g_rew, mat_name
 			]
 		}
 	else:
 		GameState.modify_gold(80)
+		var stat_list: Array = c["stats"]
 		GameState.modify_stat(str(stat_list[0]), 15)
-		Chronicle.record_event("festival_runner_" + str(TimeManager.current_year), "Finalista en el Festival (%s)" % c["name"], "%s obtuvo el segundo puesto tras %s (%d vs %d)." % [GameState.daughter_name, c["rival_name"], my_total, target_score], "festival", 3)
+		Chronicle.record_event("festival_runner_%d" % TimeManager.current_year, "Finalista en el Festival (%s)" % c["name"], "%s obtuvo el segundo puesto tras %s (%d vs %d)." % [GameState.daughter_name, c["rival_name"], my_total, target_score], "festival", 3)
 		return {
 			"ok": true,
-			"title": "🥈 Segundo Puesto en el Coliseo de las Constelaciones",
-			"summary": "%s dio una gran demostración en [b]%s[/b], pero %s se llevó la corona por %d a %d.\n\n[color=#FFD54F]Premio de Finalista: +80 Oro y +15 %s por la experiencia.[/color]" % [
+			"won": false,
+			"title": "✧  Segundo Puesto en el Coliseo de las Constelaciones  ✧",
+			"summary": "%s dio una gran demostración en [b]%s[/b], pero %s se llevó la corona por %d a %d.\n\n[color=#f7e3a1]Premio de Finalista: +80 Oro y +15 %s por la experiencia.[/color]" % [
 				GameState.daughter_name, c["name"], c["rival_name"], target_score, my_total, GameState.get_stat_label(str(stat_list[0]))
 			]
 		}
+
+# ==============================================================================
+# EVENTOS DE HISTORIA PRINCIPAL — ACTOS I, II Y III + EL GRAN GIRO (FASE 8)
+# ==============================================================================
+func check_pending_main_story_event() -> Dictionary:
+	# Acto I (Edad 13): La Primera Fisura del Firmamento
+	if GameState.age >= 13 and not story_acts_seen.has(13):
+		return {
+			"has_event": true,
+			"act_id": 13,
+			"is_twist": false,
+			"title": "✦  ACTO I (EDAD 13): LA PRIMERA FISURA DEL FIRMAMENTO  ✦",
+			"body": "Durante la lluvia de meteoros de primavera, una corona de chispas doradas brota sin querer de las manos de %s y hace levitar los libros de tu escritorio.\n\n«¡No sé qué acaba de pasar, Padre! Sentí un reloj antiguo haciendo tic-tac dentro de mis costillas... ¿Los demás niños también tienen estrellas bajo la piel?»" % GameState.daughter_name,
+			"choices": [
+				{
+					"label": "♥ Abrazarla y contarle una historia terrenal sobre cómo cayó en tus brazos (+10 Anclaje Humano, +8 Afecto, -10 Estrés)",
+					"effects": {"human_anchor": 10, "affection": 8, "stress": -10},
+					"outcome": "%s apoya la cabeza en tu pecho hasta que el zumbido estelar se calma en un latido humano." % GameState.daughter_name
+				},
+				{
+					"label": "✦ Medir la frecuencia de su pulso astral con el astrolabio de la casa (+15 Luminiscencia, +12 Resonancia, +10%% Investigación)",
+					"effects": {"luminiscencia": 15, "resonancia": 12, "seal_investigation": 10},
+					"outcome": "Registras las ecuaciones de su luz: los trazos coinciden con mapas estelares olvidados anteriores al reino de Aethelgard."
+				},
+				{
+					"label": "⚔ Enseñarle a contener la energía mediante disciplina marcial (+15 Temple, +4%% Resguardo Astral)",
+					"effects": {"temple": 15, "seal_integrity": 4},
+					"outcome": "%s aprende a respirar como un guardián veterano y aplaca las chispas con firmeza." % GameState.daughter_name
+				}
+			]
+		}
+
+	# Acto I -> II (Edad 14): El Despertar del Espejo Estelar
+	if GameState.age >= 14 and not story_acts_seen.has(14):
+		return {
+			"has_event": true,
+			"act_id": 14,
+			"is_twist": false,
+			"title": "☥  ACTO II (EDAD 14): EL DESPERTAR DEL ESPEJO ESTELAR  ☥",
+			"body": "En la noche del Equinoccio, el observatorio entero tiembla. La marca estelar en el pecho de %s brilla con jeroglíficos dorados y, por un segundo, el espejo del salón refleja una silueta encadenada tras una bruma violeta.\n\n«Papá... hay alguien más mirando desde mi reflejo. Dice que la Diosa nos oculta algo sobre la noche en que caí del cielo.»" % GameState.daughter_name,
+			"choices": [
+				{
+					"label": "♥ Jurarle protección: «Pase lo que pase, siempre serás mi hija.» (+12 Anclaje Humano, -15 Estrés, +10 Afecto)",
+					"effects": {"human_anchor": 12, "stress": -15, "affection": 10},
+					"outcome": "Las lágrimas de %s apagan el fulgor frío; tu amor levanta un escudo alrededor de su corazón mortal." % GameState.daughter_name
+				},
+				{
+					"label": "❖ Copiar los jeroglíficos del reflejo para investigarlos en secreto (+15%% Investigación del Enigma, +20 Erudición)",
+					"effects": {"seal_investigation": 15, "erudicion": 20},
+					"outcome": "Descubres que los glifos pertenecen a una escritura anterior a la corona solar. Alguien borró este capítulo de todas las bibliotecas."
+				},
+				{
+					"label": "☾ Enseñarle a escuchar esa presencia sin temor ni prejuicios (+14 Vínculo con el Espejo, +20 Resonancia)",
+					"effects": {"abyssal_sync": 14, "resonancia": 20},
+					"outcome": "Por primera vez, la silueta tras el espejo no se oculta: asiente en silencio, expectante."
+				}
+			]
+		}
+
+	# Acto II -> III (Edad 17): EL GRAN GIRO — LA ESTRELLA ERA UNA PRISIÓN
+	if GameState.age >= 17 and not story_acts_seen.has(17):
+		return {
+			"has_event": true,
+			"act_id": 17,
+			"is_twist": true,
+			"title": "☾  EL GRAN GIRO (EDAD 17): «LA ESTRELLA ERA UNA PRISIÓN»  ☾",
+			"body": "Un Heraldo de la Diosa de la Eternidad desciende sobre el balcón del observatorio entre relojes de oro suspendidos en el aire. Con voz de campanas heladas anuncia que solo quedan tres años para la Cosecha:\n\n«Héroe %s, la estrella que recibiste hace diecisiete años era el Sarcófago Celestial donde encerramos a Nyx-Aethel, el espíritu del Cambio. Tu crianza ha servido para madurar el Sello. Cuando %s cumpla veinte años, la Diosa absorberá a ambos para congelar el tiempo para siempre.»" % [GameState.father_name, GameState.daughter_name],
+			"choices": [
+				{
+					"label": "⚔ Desenvainar tu arma de Héroe: «¡Desafiaré a la misma Diosa que liberé antes de entregarle a mi hija!» (+15 Anclaje Humano, +25 Temple, +15 Afecto)",
+					"effects": {"human_anchor": 15, "temple": 25, "affection": 15},
+					"outcome": "El Heraldo retrocede ante tu aura de leyenda. %s toma tu mano, dispuesta a luchar contra el cielo mismo." % GameState.daughter_name
+				},
+				{
+					"label": "✦ Forjar el Pacto del Tercer Camino con Zephyr y los planos del Sello (+20%% Investigación, +15 Sincronía, +10 Anclaje)",
+					"effects": {"seal_investigation": 20, "abyssal_sync": 15, "human_anchor": 10},
+					"outcome": "Comprendes que la única salida para salvar tanto a %s como a Nyx-Aethel es unir ambos mundos." % GameState.daughter_name
+				},
+				{
+					"label": "☠ Dejar que la ira del Sarcófago agriete el Sello frente al Heraldo (-15%% Sello, +20 Sincronía, +30 Gravedad)",
+					"effects": {"seal_integrity": -15, "abyssal_sync": 20, "gravedad": 30},
+					"outcome": "Una onda de gravedad violeta rompe las losas del balcón y ahuyenta al Heraldo entre relámpagos oscuros."
+				}
+			]
+		}
+
+	# Acto III (Edad 19): La Víspera del Solsticio Final
+	if GameState.age >= 19 and not story_acts_seen.has(19):
+		return {
+			"has_event": true,
+			"act_id": 19,
+			"is_twist": false,
+			"title": "☀  ACTO III (EDAD 19): LA VÍSPERA DEL SOLSTICIO FINAL  ☀",
+			"body": "Queda menos de un año para el vigésimo cumpleaños de %s. Los astrónomos de Aethelgard observan cómo la esfera armilar real gira en sentido inverso. Tu hija te espera en el observatorio mirando el horizonte nocturno:\n\n«Padre... el tiempo casi se agota. ¿Cómo nos recordará el mundo cuando la Diosa descienda a reclamar su deuda?»" % GameState.daughter_name,
+			"choices": [
+				{
+					"label": "♥ «Como una familia que eligió vivir libre cada día que le fue dado.» (+10 Anclaje Humano, +10 Afecto, +15 Luminiscencia)",
+					"effects": {"human_anchor": 10, "affection": 10, "luminiscencia": 15},
+					"outcome": "El corazón de %s brilla con una calidez dorada que ni la eternidad helada podría apagar." % GameState.daughter_name
+				},
+				{
+					"label": "⏳ «Reescribiremos el mecanismo del Reloj Divino antes de la medianoche.» (+15%% Investigación, +25 Resonancia)",
+					"effects": {"seal_investigation": 15, "resonancia": 25},
+					"outcome": "Afinan los últimos cálculos de la Bóveda Estelar para el enfrentamiento inevitable de los veinte años."
+				},
+				{
+					"label": "⚡ «Que tiemblen los dioses: nuestro poder unido no se arrodillará.» (+25 Gravedad, +10 Sincronía con Zephyr)",
+					"effects": {"gravedad": 25, "abyssal_sync": 10},
+					"outcome": "Las estrellas sobre la mansión titilan en rojo y violeta respondiendo a la determinación de padre e hija."
+				}
+			]
+		}
+
+	return {"has_event": false}
+
+func apply_story_event_choice(act_id: int, choice: Dictionary) -> String:
+	if not story_acts_seen.has(act_id):
+		story_acts_seen.append(act_id)
+	var effects: Dictionary = choice.get("effects", {})
+	var labels: Array[String] = []
+	for k in effects.keys():
+		var delta: int = int(effects[k])
+		GameState.modify_stat(str(k), delta)
+		labels.append("%s %+d" % [GameState.get_stat_label(str(k)), delta])
+	var outcome: String = str(choice.get("outcome", ""))
+	if act_id == 17:
+		Chronicle.record_event("twist_year_17", "EL GRAN GIRO: La Estrella era una Prisión", outcome, "twist", 5)
+	else:
+		Chronicle.record_event("story_act_%d" % act_id, "Hito de Historia (Edad %d)" % act_id, outcome, "lore", 5)
+	return ", ".join(labels)
 
 # ==============================================================================
 # SERIALIZACIÓN PARA GUARDADO Y CARGA
@@ -543,6 +696,7 @@ func serialize() -> Dictionary:
 	return {
 		"explored_this_bimester": explored_this_bimester,
 		"festival_entered_this_year": festival_entered_this_year,
+		"festival_wins": festival_wins.duplicate(),
 		"memory_shards_found": memory_shards_found.duplicate(),
 		"story_acts_seen": story_acts_seen.duplicate(),
 		"unseal_used_count": unseal_used_count
@@ -553,6 +707,8 @@ func deserialize(d: Dictionary) -> void:
 	explored_this_bimester = bool(d.get("explored_this_bimester", false))
 	festival_entered_this_year = bool(d.get("festival_entered_this_year", false))
 	unseal_used_count = int(d.get("unseal_used_count", 0))
+	for w in d.get("festival_wins", []):
+		festival_wins.append(int(w))
 	for s in d.get("memory_shards_found", []):
 		memory_shards_found.append(str(s))
 	GameState.memory_shards_found = memory_shards_found.size()

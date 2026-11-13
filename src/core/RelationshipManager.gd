@@ -20,7 +20,7 @@ const NPC_DATA: Dictionary = {
 		"name": "Soren de Caelum", "title": "El Astrónomo de la Torre de Cristal", "location": "Observatorio de la Cumbre",
 		"base_age": 14, "start": {"affection": 20, "respect": 25},
 		"perk_desc": "Compañero en Expedición: +25% Daño Astral y revela puntos débiles (Guardia -15).",
-		"bio": "Prodigio astronómico cuya madre fue desterrada por calcular que la estrella de Renpet era una prisión milenaria.",
+		"bio": "Prodigio astronómico cuya madre fue desterrada por calcular una anomalía gravitatoria prohibida en la estrella que descendió hace doce años.",
 		"dialogues": {
 			"support": "\"¿Me trajiste café mientras reviso las tablas lunares? Gracias, Renpet... Contigo aquí, siento que la verdad del cielo no da tanto miedo.\"",
 			"romance": "\"Mis manos tiemblan cuando ajustas mis lentes así... He medido mil constelaciones, pero ninguna brilla como tú cuando sonríes.\"",
@@ -77,15 +77,15 @@ const NPC_DATA: Dictionary = {
 		}
 	},
 	"zephyr": {
-		"name": "Zephyr (Nyx-Aethel)", "title": "El Prisionero Detrás del Espejo", "location": "Espejo Astral del Sueño",
+		"name": "Zephyr", "title": "La Voz Detrás del Espejo", "location": "Espejo Astral del Sueño",
 		"base_age": 999, "start": {"affection": 0, "respect": 25},
-		"perk_desc": "Simbiosis Interior: Reduce a la mitad el coste del Sello al invocar el poder abisal en combate.",
-		"bio": "El espíritu del Lucero Primordial del libre albedrío encerrado dentro de Renpet por la traición de la Diosa de la Eternidad.",
+		"perk_desc": "Simbiosis Interior: Reduce a la mitad el coste astral al liberar el fulgor oculto en combate.",
+		"bio": "Una conciencia enigmática de ojos color eclipse que habita al otro lado de los sueños de Renpet desde que su marca estelar comenzó a despertar.",
 		"dialogues": {
-			"support": "\"¿Compartes tus recuerdos del hogar conmigo en vez de rezar para callarme? Qué extraña carcelera me ha tocado... Cálida y terca.\"",
-			"romance": "\"La Diosa nos encerró en el mismo cuerpo para que nos destruyéramos, Renpet... y en cambio has hecho que un astro muerto se enamore de ti.\"",
-			"gift": "\"¿Ofreces una esquirla de luz al espejo para aliviar mis cadenas? Nadie había tenido piedad de mí en mil años.\"",
-			"provoke": "\"¿Me tratas como a una bestia enjaulada? Sigue apretando los barrotes, niña; cuando tu sello se rompa, devoraré todo lo que amas.\""
+			"support": "\"¿Compartes tus recuerdos del hogar conmigo en vez de rezar para callarme? Qué extraña guardiana me ha tocado... Cálida y terca.\"",
+			"romance": "\"Nos encerraron en el mismo firmamento esperando que la oscuridad nos consumiera, Renpet... y en cambio hiciste que un astro dormido se enamorara de ti.\"",
+			"gift": "\"¿Ofreces una esquirla de luz al espejo para calmar este latido? Nadie había tenido piedad de mí en mil años.\"",
+			"provoke": "\"¿Me tratas como a una sombra maldita? Sigue cerrando las puertas de tu mente, niña; algún día verás por qué la Diosa me teme.\""
 		}
 	}
 }
@@ -114,7 +114,14 @@ func reset_bimester_flags() -> void:
 # CONSULTAS
 # ------------------------------------------------------------------------------
 func get_data(npc_id: String) -> Dictionary:
-	return NPC_DATA.get(npc_id, {})
+	var base: Dictionary = NPC_DATA.get(npc_id, {})
+	if npc_id == "zephyr" and not base.is_empty() and GameState.get_secret_tier() >= 2:
+		var revealed := base.duplicate(true)
+		revealed["name"] = "Zephyr (Nyx-Aethel)"
+		revealed["title"] = "El Lucero Prisionero Detrás del Espejo"
+		revealed["bio"] = "El espíritu primordial del libre albedrío encerrado por la Diosa Renpet-Neheh dentro de la estrella que se convirtió en tu hija."
+		return revealed
+	return base
 
 func get_state(npc_id: String) -> Dictionary:
 	return state.get(npc_id, {})
@@ -133,7 +140,7 @@ func is_available(npc_id: String) -> bool:
 
 func get_locked_reason(npc_id: String) -> String:
 	if npc_id == "zephyr" and not is_available(npc_id):
-		return "Zephyr despierta en sueños a partir de los 15 años (Acto II), o al asimilar la Voz del Prisionero en el Crisol."
+		return "Una presencia enigmática solo responde en sueños a partir de los 15 años (Acto II), o al asimilar el Eco del Espejo en el Crisol."
 	return ""
 
 ## Regla de edad: solo adultos (Renpet y el personaje) pueden tener ruta romántica.

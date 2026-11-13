@@ -341,8 +341,12 @@ func _apply_father_task(task_id: String) -> Dictionary:
 	elif task_id == "supervise" or task_id == "cook_home":
 		TimeManager.father_times_stayed_home_this_year += 1
 	if task_id == "investigate":
-		Chronicle.record_event("father_investigate", "Cámara de los Relojes Rotos",
-			"Descifraste un cartucho prohibido sobre la prisión de Nyx-Aethel.", "twist", 3)
+		var clue_txt: String = "Encontraste crónicas censuradas que sugieren que la estrella caída portaba un Sello antiguo."
+		if GameState.seal_investigation_progress >= 85:
+			clue_txt = "Descifraste el acta secreta del templo: la estrella era el Sarcófago Celestial de Nyx-Aethel."
+		elif GameState.seal_investigation_progress >= 45:
+			clue_txt = "Los cálculos antiguos revelan que algo consciente —llamado Nyx-Aethel— yacía dormido dentro del astro."
+		Chronicle.record_event("father_investigate", "Cámara de los Relojes Rotos", clue_txt, "twist", 3)
 	return {"task_id": task_id, "name": t["name"], "icon": t["icon"], "text": ", ".join(parts)}
 
 func _facility_name(key: String) -> String:
