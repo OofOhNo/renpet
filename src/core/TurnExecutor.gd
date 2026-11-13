@@ -237,6 +237,7 @@ func resolve_bimester() -> Dictionary:
 	RelationshipManager.reset_bimester_flags()
 	RivalMirror.reset_bimester_flags()
 	CrucibleManager.reset_bimester_flags()
+	ExplorationCombat.reset_bimester_flags()
 	father_plan.clear()
 
 	# --- 4. MANTENIMIENTO Y AVANCE DE CALENDARIO -----------------------------
@@ -244,6 +245,7 @@ func resolve_bimester() -> Dictionary:
 	var adv: Dictionary = TimeManager.advance_bimester()
 	report["upkeep"] = adv["upkeep"]
 	if int(adv["year_completed"]) > 0:
+		ExplorationCombat.reset_year_flags()
 		report["year_end"] = Chronicle.assemble_annual_letter(int(adv["year_completed"]))
 	report["campaign_finished"] = bool(adv["finished"])
 

@@ -10,7 +10,8 @@ const NAV_ITEMS: Array[Dictionary] = [
 	{"id": "status", "title": "II. Ficha de Renpet", "sub": "Atributos, rasgos y cartas", "icon": "res://assets/ui/seal_medallion_intact.png", "key": KEY_2},
 	{"id": "hearth", "title": "III. Chimenea y Hogar", "sub": "Charlas, dieta y mansión", "icon": "res://assets/ui/nav_fireplace.png", "key": KEY_3},
 	{"id": "crucible", "title": "IV. El Crisol Astral", "sub": "Asimilar reliquias y alquimia", "icon": "res://assets/ui/nav_crucible.png", "key": KEY_4},
-	{"id": "town", "title": "V. Ciudad y Vínculos", "sub": "Candidatos y rivales", "icon": "res://assets/ui/nav_town.png", "key": KEY_5}
+	{"id": "town", "title": "V. Ciudad y Vínculos", "sub": "Candidatos y rivales", "icon": "res://assets/ui/nav_town.png", "key": KEY_5},
+	{"id": "explore", "title": "VI. Expedición Astral", "sub": "5 Regiones y combate táctico", "icon": "res://assets/ui/nav_expedition.png", "key": KEY_6}
 ]
 
 # --- Nodos de interfaz ---
@@ -49,6 +50,7 @@ var _prologue: PrologueOverlay
 var _report: TurnReportOverlay
 var _letter: LetterOverlay
 var _bond: BondEventOverlay
+var _combat: CombatOverlay
 var _menu: MenuOverlay
 var _ending: EndingOverlay
 
@@ -251,7 +253,7 @@ func _build_dock() -> Control:
 		var btn := Button.new()
 		btn.theme_type_variation = "NavButton"
 		btn.toggle_mode = true
-		btn.custom_minimum_size.y = 70
+		btn.custom_minimum_size.y = 60
 		btn.focus_mode = Control.FOCUS_ALL
 		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		btn.tooltip_text = "Atajo: tecla %d" % (i + 1)
@@ -297,7 +299,7 @@ func _build_dock() -> Control:
 func _build_windows() -> void:
 	var defs: Dictionary = {
 		"schedule": SchedulePlanner.new(), "status": StatusSheet.new(), "hearth": HearthWindow.new(),
-		"crucible": AstralCrucible.new(), "town": TownMap.new()
+		"crucible": AstralCrucible.new(), "town": TownMap.new(), "explore": ExplorationWindow.new()
 	}
 	for id in defs.keys():
 		var w: BaseWindow = defs[id]
@@ -311,6 +313,7 @@ func _build_windows() -> void:
 	(_windows["schedule"] as SchedulePlanner).execute_requested.connect(_execute_turn)
 	(_windows["status"] as StatusSheet).open_letter.connect(func(l: Dictionary) -> void: _letter.show_letter(l))
 	(_windows["town"] as TownMap).bond_event_requested.connect(func(npc: String) -> void: _bond.play(npc))
+	(_windows["explore"] as ExplorationWindow).expedition_started.connect(func() -> void: _combat.open_combat())
 
 func _build_stage() -> Control:
 	var s := Control.new()
@@ -412,15 +415,17 @@ func _build_overlays() -> void:
 	_report = TurnReportOverlay.new()
 	_letter = LetterOverlay.new()
 	_bond = BondEventOverlay.new()
+	_combat = CombatOverlay.new()
 	_menu = MenuOverlay.new()
 	_ending = EndingOverlay.new()
-	for o in [_report, _letter, _bond, _menu, _ending, _prologue]:
+	for o in [_report, _letter, _bond, _combat, _menu, _ending, _prologue]:
 		add_child(o)
 	_prologue.finished.connect(_on_prologue_finished)
 	_bond.resolved.connect(func(_npc: String) -> void:
 		toast("Escena completada", "good")
 		SaveManager.autosave()
 		_refresh_all())
+	_combat.expedition_ended.connect(_on_expedition_ended)
 	_menu.save_done.connect(func(slot: int) -> void: toast("Partida guardada en la ranura %d" % slot, "good"))
 	_menu.load_requested.connect(_load_slot)
 	_menu.title_requested.connect(_go_title)
@@ -475,7 +480,7 @@ func _close_windows() -> void:
 	_current_window = ""
 
 func _any_overlay_visible() -> bool:
-	for o in [_prologue, _report, _letter, _bond, _menu, _ending]:
+	for o in [_prologue, _report, _letter, _bond, _combat, _menu, _ending]:
 		if (o as Control).visible:
 			return true
 	return false
@@ -540,6 +545,16 @@ func _execute_turn() -> void:
 	say("%s — Mansión Solar" % GameState.daughter_name, GameState.get_dynamic_manor_greeting())
 	toast("Autoguardado — %s" % TimeManager.get_bimester_info()["name"], "good")
 	_busy = false
+
+func _on_expedition_ended(victory: bool, _summary: String) -> void:
+	SaveManager.autosave()
+	_refresh_all()
+	if victory:
+		toast("Expedición completada con éxito", "good")
+		say(GameState.daughter_name, "\"¡Volvimos sanos y salvos al observatorio, Padre! Traemos reliquias y nuevos secretos del cielo.\"")
+	else:
+		toast("Retirada de la expedición", "warn")
+		say(GameState.daughter_name, "\"Tuvimos que retroceder antes de que el Sello sufriera más... Descansaré un poco.\"")
 
 func _load_slot(slot: int) -> void:
 	var res: Dictionary = SaveManager.load_game(slot)

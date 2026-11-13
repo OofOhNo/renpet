@@ -1,6 +1,6 @@
 extends Node
 
-## ExplorationCombat.gd - Sistema de Exploración en 5 Regiones, Combate Táctico de Cartas,
+## ExplorationCombat - Sistema de Exploración en 5 Regiones, Combate Táctico por Cartas,
 ## Botón "Entreabrir el Sello", Festival de las Constelaciones y Eventos de Historia (Fases 7 y 8).
 
 signal combat_updated()
@@ -10,6 +10,7 @@ var explored_this_bimester: bool = false
 var festival_entered_this_year: bool = false
 var memory_shards_found: Array[String] = []
 var story_acts_seen: Array[int] = []
+var unseal_used_count: int = 0
 
 # Las 5 Regiones Concéntricas de Aethelgard
 const ZONES: Array[Dictionary] = [
@@ -162,9 +163,10 @@ const FESTIVAL_CONTESTS: Array[Dictionary] = [
 # Estado en vivo del Combate Táctico
 var in_combat: bool = false
 var current_zone: Dictionary = {}
-var current_stage: int = 1 # 1: Vanguardia, 2: Santuario/Jefe
+var current_stage: int = 1
 var companion_id: String = "vespera"
 var companion_name: String = "Dama Vespera"
+var companion_bond_bonus: float = 1.0
 
 var player_hp: int = 450
 var player_max_hp: int = 450
@@ -185,6 +187,39 @@ var enemy_atk: int = 40
 var enemy_staggered: bool = false
 var combat_log: Array[String] = []
 
+func reset_new_game() -> void:
+	explored_this_bimester = false
+	festival_entered_this_year = false
+	memory_shards_found.clear()
+	story_acts_seen.clear()
+	unseal_used_count = 0
+	in_combat = false
+	combat_log.clear()
+
+func reset_bimester_flags() -> void:
+	explored_this_bimester = false
+
+func reset_year_flags() -> void:
+	festival_entered_this_year = false
+
+func get_companion_affinity_bonus(comp_id: String) -> float:
+	if not RelationshipManager.state.has(comp_id):
+		return 1.0
+	var aff: int = int(RelationshipManager.state[comp_id].get("affection", 0))
+	if aff >= 65:
+		return 1.25
+	if aff >= 35:
+		return 1.15
+	return 1.0
+
+func can_recruit_companion(comp_id: String) -> bool:
+	if not RelationshipManager.is_available(comp_id):
+		return false
+	if not RelationshipManager.state.has(comp_id):
+		return true
+	var aff: int = int(RelationshipManager.state[comp_id].get("affection", 0))
+	return aff > -45
+
 func start_expedition(zone_idx: int, comp_id: String, comp_display_name: String) -> Dictionary:
 	if zone_idx < 0 or zone_idx >= ZONES.size():
 		return {"ok": false, "msg": "Región inválida."}
@@ -193,25 +228,29 @@ func start_expedition(zone_idx: int, comp_id: String, comp_display_name: String)
 		return {"ok": false, "msg": "Renpet debe tener al menos %d años para adentrarse en %s." % [int(z["min_age"]), z["name"]]}
 	if explored_this_bimester:
 		return {"ok": false, "msg": "Renpet ya realizó una expedición fuera de las murallas en este bimestre."}
-		
+	if not can_recruit_companion(comp_id):
+		return {"ok": false, "msg": "%s siente demasiado rencor hacia Renpet como para acompañarla en batalla." % comp_display_name}
+
 	explored_this_bimester = true
 	current_zone = z
 	current_stage = 1
 	companion_id = comp_id
 	companion_name = comp_display_name
-	
+	companion_bond_bonus = get_companion_affinity_bonus(comp_id)
+
 	player_max_hp = 180 + GameState.temple * 2 + GameState.gravedad
 	player_hp = player_max_hp
 	player_shield = 0
 	player_max_ap = 4 if GameState.has_mutation("paradoja_menor") else 3
 	player_ap = player_max_ap
-	rewind_charges = 1
+	rewind_charges = 2 if GameState.unlocked_synergies.has("ephemeris_weaver") else 1
 	unsealed_this_combat = false
-	
+
 	_setup_stage_enemy(1)
 	in_combat = true
 	combat_log.clear()
-	combat_log.append("[color=#FFE082]✦ Expedición iniciada en %s junto a %s.[/color]" % [z["name"], companion_name])
+	var bond_note: String = " [Sinergia de Vínculo x%.2f]" % companion_bond_bonus if companion_bond_bonus > 1.0 else ""
+	combat_log.append("[color=#FFE082]✦ Expedición iniciada en %s junto a %s%s.[/color]" % [z["name"], companion_name, bond_note])
 	combat_updated.emit()
 	return {"ok": true}
 
@@ -240,8 +279,8 @@ func play_combat_card(card_id: String) -> void:
 		return
 	var dmg_mult: float = 1.50 if enemy_staggered else 1.0
 	if companion_id == "cassian":
-		dmg_mult *= 1.20
-		
+		dmg_mult *= 1.20 * companion_bond_bonus
+
 	match card_id:
 		"solar_slash":
 			if player_ap < 1:
@@ -251,11 +290,11 @@ func play_combat_card(card_id: String) -> void:
 			player_ap -= 1
 			var base_d: int = 45 + int((GameState.temple + GameState.destreza) * 0.35)
 			if companion_id == "vespera":
-				base_d = int(round(base_d * 1.25))
+				base_d = int(round(base_d * 1.25 * companion_bond_bonus))
 			var final_d: int = int(round(base_d * dmg_mult))
 			var stag_d: int = 28 if companion_id == "vespera" else 18
 			_apply_damage_to_enemy(final_d, stag_d, "⚔️ Tajo de Horus")
-			
+
 		"lotus_guard":
 			if player_ap < 1:
 				combat_log.append("[color=#FF8A80]No tienes suficientes PA.[/color]")
@@ -263,11 +302,13 @@ func play_combat_card(card_id: String) -> void:
 				return
 			player_ap -= 1
 			var sh_gain: int = 45 + int((GameState.gracia + GameState.gravedad) * 0.35)
+			if companion_id == "cassian":
+				sh_gain = int(round(sh_gain * 1.20))
 			player_shield += sh_gain
 			var heal_v: int = 20 + int(GameState.luminiscencia * 0.12)
 			player_hp = mini(player_max_hp, player_hp + heal_v)
 			combat_log.append("[color=#80DEEA]🛡️ Égida de Loto: +%d Escudo Astral y +%d HP restaurado.[/color]" % [sh_gain, heal_v])
-			
+
 		"starlight_ray":
 			if player_ap < 2:
 				combat_log.append("[color=#FF8A80]Cometa de Sothis requiere 2 PA.[/color]")
@@ -276,10 +317,10 @@ func play_combat_card(card_id: String) -> void:
 			player_ap -= 2
 			var base_d: int = 95 + int((GameState.luminiscencia + GameState.erudicion) * 0.52)
 			if companion_id == "soren":
-				base_d = int(round(base_d * 1.25))
+				base_d = int(round(base_d * 1.25 * companion_bond_bonus))
 			var final_d: int = int(round(base_d * dmg_mult))
 			_apply_damage_to_enemy(final_d, 32, "✨ Cometa de Sothis")
-			
+
 		"chrono_flux":
 			if player_ap < 1:
 				combat_log.append("[color=#FF8A80]Requiere 1 PA.[/color]")
@@ -290,18 +331,18 @@ func play_combat_card(card_id: String) -> void:
 			var final_d: int = int(round(base_d * dmg_mult))
 			player_shield += 25
 			_apply_damage_to_enemy(final_d, 22, "⏳ Pulso de Relojería")
-			
+
 		"companion_skill":
 			if player_ap < 1:
 				combat_log.append("[color=#FF8A80]Requiere 1 PA.[/color]")
 				combat_updated.emit()
 				return
 			player_ap -= 1
-			_execute_companion_active_skill(dmg_mult)
-			
+			_execute_companion_active_skill(dmg_mult * companion_bond_bonus)
+
 		"rewind":
 			if rewind_charges <= 0:
-				combat_log.append("[color=#FF8A80]Ya utilizaste el Rebobinado Temporal en esta expedición.[/color]")
+				combat_log.append("[color=#FF8A80]No te quedan cargas de Rebobinado Temporal en esta expedición.[/color]")
 				combat_updated.emit()
 				return
 			rewind_charges -= 1
@@ -310,20 +351,21 @@ func play_combat_card(card_id: String) -> void:
 			player_ap = mini(player_max_ap + 1, player_ap + 2)
 			player_shield += 40
 			combat_log.append("[color=#FFF176]⏪ REBOBINADO TEMPORAL: El reloj gira hacia atrás (+%d HP, +40 Escudo, +2 PA).[/color]" % heal_r)
-			
+
 		"unseal":
 			# EL BOTÓN TENTADOR: ENTREABRIR EL SELLO ESTELAR (0 PA)
 			var seal_cost: int = -4 if companion_id == "zephyr" else -8
 			GameState.modify_stat("seal_integrity", seal_cost)
 			GameState.modify_stat("abyssal_sync", 7)
 			unsealed_this_combat = true
+			unseal_used_count += 1
 			var abyssal_dmg: int = 180 + int((GameState.gravedad + GameState.resonancia + GameState.abyssal_sync * 4) * 0.65)
 			player_hp = mini(player_max_hp, player_hp + int(player_max_hp * 0.35))
 			player_ap += 2
-			Chronicle.record_event("unseal_combat", "El Sello Entreabierto en Batalla", "Para derrotar a %s, Renpet liberó el fuego violeta de Nyx-Aethel (%d%% Sello)." % [enemy_name, seal_cost], "twist", 5)
-			combat_log.append("[color=#FF80AB][b]☥ ¡SELLO ENTREABIERTO! Fulgor de Nyx-Aethel (%d%% Integridad del Sello, +7%% Sincronía, +2 PA)[/b][/color]" % seal_cost)
+			Chronicle.record_event("unseal_combat_%d" % unseal_used_count, "El Sello Entreabierto en Batalla", "Para derrotar a %s, %s liberó el fuego violeta de Nyx-Aethel (%d%% Sello)." % [enemy_name, GameState.daughter_name, seal_cost], "twist", 5)
+			combat_log.append("[color=#FF80AB][b]☥ ¡SELLO ENTREABIERTO! Fulgor de Nyx-Aethel (%d%% Sello, +7%% Sincronía, +2 PA)[/b][/color]" % seal_cost)
 			_apply_damage_to_enemy(abyssal_dmg, 999, "☥ Eclipse de Nyx-Aethel")
-			
+
 	_check_enemy_defeat_or_continue()
 
 func _execute_companion_active_skill(dmg_mult: float) -> void:
@@ -344,7 +386,7 @@ func _execute_companion_active_skill(dmg_mult: float) -> void:
 			player_shield += 40
 			_apply_damage_to_enemy(d, 25, "☀️ Mandato Solar de Cassian")
 		"mirari":
-			var heal_m: int = 75 + int(GameState.luminiscencia * 0.25)
+			var heal_m: int = int(round((75 + GameState.luminiscencia * 0.25) * companion_bond_bonus))
 			player_hp = mini(player_max_hp, player_hp + heal_m)
 			player_shield += 50
 			GameState.modify_stat("seal_integrity", 2)
@@ -356,11 +398,12 @@ func _execute_companion_active_skill(dmg_mult: float) -> void:
 func _apply_damage_to_enemy(dmg: int, stagger_add: int, skill_label: String) -> void:
 	enemy_hp = maxi(0, enemy_hp - dmg)
 	if not enemy_staggered:
-		enemy_stagger += stagger_add
+		var bonus_stagger: int = 15 if companion_id == "soren" else 0
+		enemy_stagger += stagger_add + bonus_stagger
 		if enemy_stagger >= enemy_max_stagger:
 			enemy_stagger = enemy_max_stagger
 			enemy_staggered = true
-			combat_log.append("[color=#FFF176]★ ¡QUIEBRE DE GUARDIA! %s queda vulnerable (Daño x1.5 y pierde su ataque).[/color]" % enemy_name)
+			combat_log.append("[color=#FFF176]★ ¡QUIEBRE DE GUARDIA! %s queda aturdido (Daño x1.5 y pierde su turno).[/color]" % enemy_name)
 	combat_log.append("%s inflige [b]%d[/b] de daño a %s." % [skill_label, dmg, enemy_name])
 
 func end_player_turn() -> void:
@@ -380,33 +423,42 @@ func end_player_turn() -> void:
 			var hp_loss: int = incoming - blocked
 			player_hp = maxi(0, player_hp - hp_loss)
 			combat_log.append("[color=#FF8A80]%s ataca: %d daño (%d absorbido por Escudo).[/color]" % [enemy_name, hp_loss, blocked])
-			
+
 	if companion_id == "mirari" and player_hp > 0:
-		var regen: int = int(player_max_hp * 0.10)
+		var regen: int = int(player_max_hp * 0.15)
 		player_hp = mini(player_max_hp, player_hp + regen)
-		
+		combat_log.append("[color=#81C784]🎵 Canto de Mirari regenera +%d HP.[/color]" % regen)
+
 	if player_hp <= 0:
 		in_combat = false
 		GameState.modify_stat("stress", 18)
 		var defeat_msg: String = "%s tuvo que retirarse de %s tras caer agotada (+18 Estrés)." % [GameState.daughter_name, current_zone["name"]]
 		combat_finished.emit(false, defeat_msg)
 		return
-		
+
 	player_ap = player_max_ap
 	player_shield = int(player_shield * 0.35)
 	combat_updated.emit()
+
+func retreat_from_combat() -> void:
+	if not in_combat:
+		return
+	in_combat = false
+	GameState.modify_stat("stress", 8)
+	var msg: String = "%s y %s se retiraron estratégicamente de %s (+8 Estrés)." % [GameState.daughter_name, companion_name, current_zone["name"]]
+	combat_finished.emit(false, msg)
 
 func _check_enemy_defeat_or_continue() -> void:
 	if enemy_hp > 0:
 		combat_updated.emit()
 		return
-		
+
 	if current_stage == 1:
-		# Avanzar al Jefe de Región y descubrir Esquirla de Memoria
 		var shard_id: String = current_zone["shard_id"]
 		var shard_msg: String = ""
 		if not memory_shards_found.has(shard_id):
 			memory_shards_found.append(shard_id)
+			GameState.memory_shards_found = memory_shards_found.size()
 			GameState.modify_stat("seal_investigation", 15)
 			Chronicle.record_event(shard_id, current_zone["shard_title"], current_zone["shard_lore"], "twist", 5)
 			shard_msg = "\n[color=#FFF176][b]★ %s (+15%% Investigación del Sello):[/b]\n%s[/color]" % [
@@ -417,7 +469,6 @@ func _check_enemy_defeat_or_continue() -> void:
 		combat_log.append("[color=#81C784]¡Vanguardia derrotada! Avanzas al santuario interior: aparece [b]%s[/b].[/color]%s" % [enemy_name, shard_msg])
 		combat_updated.emit()
 	else:
-		# Victoria Total en la Expedición
 		in_combat = false
 		var gold_won: int = int(current_zone["gold_reward"])
 		if companion_id == "kaelen":
@@ -427,9 +478,10 @@ func _check_enemy_defeat_or_continue() -> void:
 		GameState.modify_stat("resonancia", 16)
 		var loot_key: String = current_zone["loot_id"]
 		GameState.materials_inventory[loot_key] = GameState.materials_inventory.get(loot_key, 0) + 1
-		Chronicle.record_event("exp_win_" + str(current_zone["id"]), "Conquista de " + str(current_zone["name"]), "Renpet y %s derrotaron a %s." % [companion_name, enemy_name], "expedition", 4)
-		var win_summary: String = "¡Victoria en %s! Derrotaste a %s junto a %s.\nRecompensas: +%d Oro, +16 Temple, +16 Resonancia y +1 reliquia para el Crisol Astral." % [
-			current_zone["name"], enemy_name, companion_name, gold_won
+		Chronicle.record_event("exp_win_" + str(current_zone["id"]), "Conquista de " + str(current_zone["name"]), "%s y %s derrotaron a %s." % [GameState.daughter_name, companion_name, enemy_name], "expedition", 4)
+		var mat_name: String = str(CatalogDB.get_material(loot_key).get("name", loot_key))
+		var win_summary: String = "¡Victoria en %s! Derrotaste a %s junto a %s.\nRecompensas: +%d Oro, +16 Temple, +16 Resonancia y +1 %s para el Crisol Astral." % [
+			current_zone["name"], enemy_name, companion_name, gold_won, mat_name
 		]
 		combat_finished.emit(true, win_summary)
 
@@ -437,26 +489,26 @@ func _check_enemy_defeat_or_continue() -> void:
 # LÓGICA DEL GRAN FESTIVAL DE LAS CONSTELACIONES DE OTOÑO (FASE 8)
 # ==============================================================================
 func participate_in_festival(contest_idx: int, rival_mirror_dict: Dictionary) -> Dictionary:
-	if TimeManager.current_bimester != TimeManager.FESTIVAL_BIMESTER:
-		return {"ok": false, "msg": "El Gran Festival de las Constelaciones se celebra en el Bimestre 4 (Cosecha, Equinoccio de Otoño). Aún puedes prepararte."}
+	if not TimeManager.is_festival_bimester():
+		return {"ok": false, "msg": "El Gran Festival de las Constelaciones se celebra en el 4º Bimestre (Cosecha, Equinoccio de Otoño). Aún puedes prepararte."}
 	if festival_entered_this_year:
 		return {"ok": false, "msg": "Renpet ya compitió en el certamen oficial del Festival de Otoño de este año."}
 	if contest_idx < 0 or contest_idx >= FESTIVAL_CONTESTS.size():
 		return {"ok": false, "msg": "Certamen inválido."}
-		
+
 	festival_entered_this_year = true
 	var c: Dictionary = FESTIVAL_CONTESTS[contest_idx]
 	var stat_list: Array = c["stats"]
 	var my_total: int = 0
 	for sk in stat_list:
-		my_total += int(GameState.get(sk))
+		my_total += int(GameState.get_stat(str(sk)))
 	if GameState.unlocked_synergies.has("horizon_valkyrie") and c["id"] == "contest_blades":
 		my_total += 60
-		
+
 	var r_id: String = c["rival_id"]
 	var riv_base: int = int(rival_mirror_dict.get(r_id, {}).get("score", 250))
 	var target_score: int = int(round(riv_base * 1.35))
-	
+
 	if my_total >= target_score:
 		var g_rew: int = int(c["reward_gold"])
 		var item_k: String = c["reward_item"]
@@ -464,7 +516,7 @@ func participate_in_festival(contest_idx: int, rival_mirror_dict: Dictionary) ->
 		GameState.modify_stat("magnetismo", 24)
 		GameState.modify_stat("affection", 10)
 		GameState.materials_inventory[item_k] = GameState.materials_inventory.get(item_k, 0) + 1
-		Chronicle.record_event("festival_champion_" + str(TimeManager.current_year), "Campeona del Festival de Otoño (%s)" % c["name"], "Renpet venció a %s con %d pts frente a %d pts." % [c["rival_name"], my_total, target_score], "festival", 5)
+		Chronicle.record_event("festival_champion_" + str(TimeManager.current_year), "Campeona del Festival de Otoño (%s)" % c["name"], "%s venció a %s con %d pts frente a %d pts." % [GameState.daughter_name, c["rival_name"], my_total, target_score], "festival", 5)
 		return {
 			"ok": true,
 			"title": "👑 ¡CAMPEONA DEL FESTIVAL DE LAS CONSTELACIONES!",
@@ -474,47 +526,35 @@ func participate_in_festival(contest_idx: int, rival_mirror_dict: Dictionary) ->
 		}
 	else:
 		GameState.modify_gold(80)
-		GameState.modify_stat(stat_list[0], 15)
-		Chronicle.record_event("festival_runner_" + str(TimeManager.current_year), "Finalista en el Festival (%s)" % c["name"], "Renpet obtuvo el segundo puesto tras %s (%d vs %d)." % [c["rival_name"], my_total, target_score], "festival", 3)
+		GameState.modify_stat(str(stat_list[0]), 15)
+		Chronicle.record_event("festival_runner_" + str(TimeManager.current_year), "Finalista en el Festival (%s)" % c["name"], "%s obtuvo el segundo puesto tras %s (%d vs %d)." % [GameState.daughter_name, c["rival_name"], my_total, target_score], "festival", 3)
 		return {
 			"ok": true,
 			"title": "🥈 Segundo Puesto en el Coliseo de las Constelaciones",
 			"summary": "%s dio una gran demostración en [b]%s[/b], pero %s se llevó la corona por %d a %d.\n\n[color=#FFD54F]Premio de Finalista: +80 Oro y +15 %s por la experiencia.[/color]" % [
-				GameState.daughter_name, c["name"], c["rival_name"], target_score, my_total, str(stat_list[0]).capitalize()
+				GameState.daughter_name, c["name"], c["rival_name"], target_score, my_total, GameState.get_stat_label(str(stat_list[0]))
 			]
 		}
 
 # ==============================================================================
-# EVENTOS DE HISTORIA PRINCIPAL Y EL GRAN GIRO DEL AÑO 17 (FASE 8)
+# SERIALIZACIÓN PARA GUARDADO Y CARGA
 # ==============================================================================
-func check_pending_main_story_event() -> Dictionary:
-	# Acto I -> II (Edad 14): El Primer Latido del Sarcófago
-	if GameState.age >= 14 and not story_acts_seen.has(14):
-		story_acts_seen.append(14)
-		return {
-			"has_event": true,
-			"act_id": 14,
-			"title": "𓇳 ACTO II (EDAD 14): LA RESONANCIA DEL SARCÓFAGO ESTELAR 𓇳",
-			"body": "Durante la noche del Equinoccio, el observatorio entero tiembla. El tatuaje solar en el pecho de %s se ilumina con jeroglíficos dorados y, por un instante, su sombra proyecta las alas encadenadas de una entidad ancestral.\n\n«Papá... dentro de mi pecho hay alguien más respirando. Dice que se llama Zephyr, y que la Diosa que salvaste no es quien creemos.»" % GameState.daughter_name,
-			"choices": [
-				{"label": "♥ Abrazarla con fuerza: «No importa qué haya en esa estrella; tú eres mi hija humana.» (+12 Anclaje Humano, -15 Estrés)", "effects": {"human_anchor": 12, "stress": -15, "affection": 10}},
-				{"label": "🔍 Estudiar los jeroglíficos de su pecho juntos en la bóveda (+15% Investigación del Sello, +20 Erudición)", "effects": {"seal_investigation": 15, "erudicion": 20}},
-				{"label": "🌌 Enseñarle a escuchar a Zephyr sin miedo (+12 Sincronía con Nyx-Aethel, +20 Resonancia)", "effects": {"abyssal_sync": 12, "resonancia": 20}}
-			]
-		}
-	# Acto II -> III (Edad 17): EL GRAN GIRO — LA ESTRELLA ERA UNA PRISIÓN
-	if GameState.age >= 17 and not story_acts_seen.has(17):
-		story_acts_seen.append(17)
-		Chronicle.record_event("twist_year_17", "EL GRAN GIRO: La Estrella era una Prisión", "Se reveló que la Diosa Renpet-Neheh usó a Renpet como prisión viviente de Nyx-Aethel para cosecharlos a los 20 años.", "twist", 5)
-		return {
-			"has_event": true,
-			"act_id": 17,
-			"title": "🌘 EL GRAN GIRO (EDAD 17): «LA ESTRELLA ERA UNA PRISIÓN» 🌘",
-			"body": "Un Heraldo de la Diosa de la Eternidad desciende sobre el balcón del observatorio. Con voz de campanas heladas anuncia que quedan tres años para la Cosecha del Solsticio:\n\n«Héroe %s, la estrella que recibiste hace diecisiete años era el Sarcófago Celestial donde encerramos a Nyx-Aethel, el espíritu del Cambio. Tu crianza ha servido para madurar el Sello. Cuando %s cumpla veinte años, la Diosa absorberá a ambos para congelar el tiempo para siempre.»" % [GameState.father_name, GameState.daughter_name],
-			"choices": [
-				{"label": "⚔️ Desenvainar tu arma de Héroe: «¡Desafiaré a la misma Diosa que liberé antes de entregarle a mi hija!» (+15 Anclaje Humano, +25 Temple)", "effects": {"human_anchor": 15, "temple": 25, "affection": 15}},
-				{"label": "☯️ Forjar el Pacto del Tercer Camino con Zephyr y los planos del Sello (+20% Investigación, +15 Sincronía, +10 Anclaje)", "effects": {"seal_investigation": 20, "abyssal_sync": 15, "human_anchor": 10}},
-				{"label": "🌑 Dejar que la ira de Nyx-Aethel agriete el Sello frente al Heraldo (-15% Sello, +20 Sincronía, +30 Gravedad)", "effects": {"seal_integrity": -15, "abyssal_sync": 20, "gravedad": 30}}
-			]
-		}
-	return {"has_event": false}
+func serialize() -> Dictionary:
+	return {
+		"explored_this_bimester": explored_this_bimester,
+		"festival_entered_this_year": festival_entered_this_year,
+		"memory_shards_found": memory_shards_found.duplicate(),
+		"story_acts_seen": story_acts_seen.duplicate(),
+		"unseal_used_count": unseal_used_count
+	}
+
+func deserialize(d: Dictionary) -> void:
+	reset_new_game()
+	explored_this_bimester = bool(d.get("explored_this_bimester", false))
+	festival_entered_this_year = bool(d.get("festival_entered_this_year", false))
+	unseal_used_count = int(d.get("unseal_used_count", 0))
+	for s in d.get("memory_shards_found", []):
+		memory_shards_found.append(str(s))
+	GameState.memory_shards_found = memory_shards_found.size()
+	for a in d.get("story_acts_seen", []):
+		story_acts_seen.append(int(a))

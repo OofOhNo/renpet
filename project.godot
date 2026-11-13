@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="Renpet: La Señora de la Eternidad"
+config/description="Simulador de crianza en Godot 4: Renpet, la niña estrella. Fases 1 a 6 (núcleo, mansión, planificación, crisol, vínculos y rivales)."
 run/main_scene="res://src/scenes/TitleScreen.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/description="Simulador de crianza en Godot 4: Renpet, la niña estrella. Fases 1 a 6 (núcleo, mansión, planificación, crisol, vínculos y rivales)."
 config/icon="res://icon.svg"
 
 [autoload]
@@ -25,6 +25,7 @@ CatalogDB="*res://src/data/CatalogDB.gd"
 RelationshipManager="*res://src/core/RelationshipManager.gd"
 RivalMirror="*res://src/core/RivalMirror.gd"
 CrucibleManager="*res://src/core/CrucibleManager.gd"
+ExplorationCombat="*res://src/core/ExplorationCombat.gd"
 TurnExecutor="*res://src/core/TurnExecutor.gd"
 SaveManager="*res://src/core/SaveManager.gd"
 
@@ -32,11 +33,11 @@ SaveManager="*res://src/core/SaveManager.gd"
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
 window/size/window_width_override=1600
 window/size/window_height_override=900
 window/energy_saving/keep_screen_on=false
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [gui]
 

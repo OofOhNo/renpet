@@ -70,6 +70,7 @@ func new_game() -> void:
 	RelationshipManager.reset_new_game()
 	RivalMirror.reset_new_game()
 	CrucibleManager.reset_new_game()
+	ExplorationCombat.reset_new_game()
 	TurnExecutor.reset_new_game()
 	current_slot = 1
 
@@ -103,6 +104,7 @@ func build_payload() -> Dictionary:
 		"relationships": RelationshipManager.serialize(),
 		"rivals": RivalMirror.serialize(),
 		"crucible": CrucibleManager.serialize(),
+		"exploration": ExplorationCombat.serialize(),
 		"plan": TurnExecutor.serialize()
 	}
 
@@ -164,6 +166,7 @@ func load_game(slot: int = 1) -> Dictionary:
 	RelationshipManager.deserialize(data.get("relationships", {}))
 	RivalMirror.deserialize(data.get("rivals", {}))
 	CrucibleManager.deserialize(data.get("crucible", {}))
+	ExplorationCombat.deserialize(data.get("exploration", {}))
 	TurnExecutor.deserialize(data.get("plan", {}))
 	if MANUAL_SLOTS.has(slot):
 		current_slot = slot
